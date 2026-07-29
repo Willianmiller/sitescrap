@@ -860,7 +860,7 @@ async function loadProperties() {
       type: p.sale_type === 'extrajudicial' ? 'extrajudicial' : 'judicial',
       market: p.valor_avaliacao || 0,
       auction: p.valor_primeira_praca || p.valor_lance_inicial || 0,
-      image: (p.img_urls && p.img_urls[0]) || `https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80`,
+      image: (p.img_urls && p.img_urls[0] && !p.img_urls[0].includes('sem-foto')) || `https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80`,
       badge: p.leilao_tipo || 'Leilão',
       area: p.area_imovel ? `${p.area_imovel}m²` : '—',
       bedrooms: p.quartos || 0
