@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Painel Administrativo — LexLeilões</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0B0B0B;
+  --surface: #171717;
+  --surface-2: #1f1f1f;
+  --border: #2A2A2A;
+  --fg: #FFFFFF;
+  --muted: #A1A1AA;
+  --accent: #C8A24A;
+  --accent-hover: #E3C56E;
+  --success: #22C55E;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.16,1,0.3,1);
+  --sidebar-w: 260px;
+  --font-display: 'Manrope', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit;font-family:inherit}
+ul{list-style:none}
+input,textarea,select{font-family:inherit}
+
+/* ===== LOGIN ===== */
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);position:relative}
+.login-page::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%, rgba(200,162,74,0.05) 0%, transparent 60%)}
+.login-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;position:relative}
+.login-logo{font-family:var(--font-display);font-weight:800;font-size:24px;text-align:center;margin-bottom:32px;letter-spacing:-0.5px}
+.login-logo span{color:var(--accent)}
+.login-title{font-family:var(--font-display);font-weight:600;font-size:20px;text-align:center;margin-bottom:8px}
+.login-desc{font-size:14px;color:var(--muted);text-align:center;margin-bottom:32px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.form-input{width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--fg);font-size:14px;transition:var(--transition);outline:none}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,162,74,0.1)}
+.form-input::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:var(--radius-sm);font-weight:600;font-size:14px;transition:var(--transition);width:100%}
+.btn-accent{background:var(--accent);color:#0B0B0B}
+.btn-accent:hover{background:var(--accent-hover)}
+.login-error{font-size:13px;color:var(--danger);text-align:center;margin-top:12px;display:none}
+
+/* ===== ADMIN LAYOUT ===== */
+.admin-page{display:none;min-height:100vh}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);padding:24px;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
+.sidebar-logo{font-family:var(--font-display);font-weight:800;font-size:20px;margin-bottom:32px;letter-spacing:-0.3px}
+.sidebar-logo span{color:var(--accent)}
+.sidebar-nav{display:flex;flex-direction:column;gap:4px;flex:1}
+.sidebar-link{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--radius-sm);font-size:14px;color:var(--muted);transition:var(--transition)}
+.sidebar-link:hover,.sidebar-link.active{background:rgba(200,162,74,0.08);color:var(--fg)}
+.sidebar-link.active{color:var(--accent)}
+.sidebar-link svg{width:18px;height:18px;flex-shrink:0}
+.sidebar-footer{padding-top:16px;border-top:1px solid var(--border)}
+.sidebar-user{display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--radius-sm);font-size:13px}
+.sidebar-user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#0B0B0B}
+.sidebar-user-info{flex:1;min-width:0}
+.sidebar-user-name{font-weight:500;font-size:13px;color:var(--fg)}
+.sidebar-user-role{font-size:11px;color:var(--muted)}
+
+.main{margin-left:var(--sidebar-w);padding:32px;min-height:100vh}
+.main-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap;gap:16px}
+.main-title{font-family:var(--font-display);font-weight:700;font-size:24px;color:var(--fg)}
+.main-actions{display:flex;gap:8px}
+.btn-sm{padding:8px 16px;font-size:13px;width:auto}
+.btn-outline{border:1px solid var(--border);color:var(--fg);background:transparent}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:var(--danger);color:white}
+.btn-danger:hover{opacity:0.9}
+.btn-success{background:var(--success);color:#0B0B0B}
+
+/* Dashboard Cards */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.stat-card-value{font-family:var(--font-display);font-weight:700;font-size:32px;color:var(--fg);display:block}
+.stat-card-label{font-size:13px;color:var(--muted);margin-top:4px}
+.stat-card-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+
+/* Tables */
+.table-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:24px}
+.table-header{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--border)}
+.table-header h3{font-family:var(--font-display);font-weight:600;font-size:16px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:14px 24px;text-align:left;font-size:13px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:0.5px;font-size:11px}
+td{color:var(--fg)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+
+/* Panels */
+.panel{display:none}
+.panel.active{display:block}
+.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.panel-title{font-family:var(--font-display);font-weight:600;font-size:18px}
+.search-input{padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--fg);font-size:13px;outline:none;min-width:240px}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.modal-title{font-family:var(--font-display);font-weight:600;font-size:18px}
+.modal-close{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:var(--transition)}
+.modal-close:hover{background:var(--border);color:var(--fg)}
+.modal-actions{display:flex;gap:8px;margin-top:24px;justify-content:flex-end}
+.modal-actions .btn{width:auto}
+
+/* Tags */
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:100px;background:rgba(200,162,74,0.1);color:var(--accent);font-size:12px;font-weight:500}
+.tag-remove{cursor:pointer;opacity:0.7}
+.tag-remove:hover{opacity:1}
+.tag-input{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);min-height:42px;align-items:center}
+.tag-input input{flex:1;min-width:80px;border:none;background:none;color:var(--fg);font-size:14px;outline:none}
+
+/* Status Badges */
+.badge{padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600;display:inline-block}
+.badge-success{background:rgba(34,197,94,0.1);color:var(--success)}
+.badge-warning{background:rgba(245,158,11,0.1);color:var(--warning)}
+.badge-danger{background:rgba(239,68,68,0.1);color:var(--danger)}
+
+/* Tabs */
+.tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:24px}
+.tab{padding:10px 20px;font-size:13px;font-weight:500;color:var(--muted);background:transparent;transition:var(--transition);border-right:1px solid var(--border)}
+.tab:last-child{border-right:none}
+.tab.active{background:rgba(200,162,74,0.1);color:var(--accent)}
+.tab:hover{color:var(--fg)}
+
+/* Responsive */
+@media(max-width:992px){
+  .sidebar{width:200px;padding:16px}
+  .main{margin-left:200px;padding:24px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:768px){
+  .sidebar{width:100%;position:relative;border-right:none;border-bottom:1px solid var(--border);padding:16px}
+  .main{margin-left:0;padding:16px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .sidebar-nav{flex-direction:row;flex-wrap:wrap;gap:4px}
+  .sidebar-link{font-size:12px;padding:8px 12px}
+  .sidebar-footer{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <div class="login-logo">Lex<span>Leilões</span></div>
+    <div class="login-title">Painel Administrativo</div>
+    <div class="login-desc">Faça login para gerenciar o conteúdo do site</div>
+    <form onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" class="form-input" id="loginEmail" placeholder="admin@lexleiloes.com.br" required value="admin@lexleiloes.com.br" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" class="form-input" id="loginPass" placeholder="••••••••" required value="123456" />
+      </div>
+      <button type="submit" class="btn btn-accent">Entrar</button>
+      <div class="login-error" id="loginError">Credenciais inválidas. Tente admin@lexleiloes.com.br / 123456</div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== ADMIN ===== -->
+<div class="admin-page" id="adminPage">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">Lex<span>Leilões</span></div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-link active" data-panel="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="sidebar-link" data-panel="properties">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Imóveis
+      </button>
+      <button class="sidebar-link" data-panel="articles">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Artigos
+      </button>
+      <button class="sidebar-link" data-panel="services">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Serviços
+      </button>
+      <button class="sidebar-link" data-panel="testimonials">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Depoimentos
+      </button>
+      <button class="sidebar-link" data-panel="faq">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        FAQ
+      </button>
+      <button class="sidebar-link" data-panel="seo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        SEO
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-user-avatar">AD</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name">Admin LexLeilões</div>
+          <div class="sidebar-user-role">Super Admin</div>
+        </div>
+        <button onclick="handleLogout()" style="color:var(--muted);font-size:13px;padding:4px">Sair</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- DASHBOARD PANEL -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="main-header">
+        <h1 class="main-title">Dashboard</h1>
+        <span style="font-size:13px;color:var(--muted)">Última atualização: hoje, 14:32</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:rgba(200,162,74,0.1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <span class="stat-card-value">3</span>
+          <span class="stat-card-label">Artigos Publicados</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:rgba(200,162,74,0.1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+          <span class="stat-card-value">8</span>
+          <span class="stat-card-label">Serviços Cadastrados</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:rgba(34,197,94,0.1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <span class="stat-card-value">5</span>
+          <span class="stat-card-label">Depoimentos</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:rgba(245,158,11,0.1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <span class="stat-card-value">6</span>
+          <span class="stat-card-label">Perguntas FAQ</span>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <div class="table-header"><h3>Atividades Recentes</h3></div>
+        <table>
+          <thead><tr><th>Ação</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Artigo "Guia Completo para Participar do Primeiro Leilão" publicado</td><td>15 Jun 2026</td><td><span class="badge badge-success">Publicado</span></td></tr>
+            <tr><td>Depoimento de Roberto Almeida adicionado</td><td>12 Jun 2026</td><td><span class="badge badge-success">Ativo</span></td></tr>
+            <tr><td>SEO atualizado — página inicial</td><td>10 Jun 2026</td><td><span class="badge badge-success">Atualizado</span></td></tr>
+            <tr><td>Serviço "Regularização de Imóveis" editado</td><td>08 Jun 2026</td><td><span class="badge badge-warning">Rascunho</span></td></tr>
+            <tr><td>FAQ atualizada com 2 novas perguntas</td><td>05 Jun 2026</td><td><span class="badge badge-success">Publicado</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PROPERTIES PANEL -->
+    <div class="panel" id="panel-properties">
+      <div class="panel-header">
+        <h2 class="panel-title">Imóveis Importados</h2>
+        <div style="display:flex;gap:8px">
+          <input type="text" class="search-input" placeholder="Buscar imóveis..." id="propertySearch" oninput="filterProperties()" />
+          <span class="badge badge-success" id="propertyCount" style="align-self:center">0 imóveis</span>
+        </div>
+      </div>
+      <div class="table-container" style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Matrícula</th><th>Endereço</th><th>Cidade</th><th>Valor</th><th>Fonte</th><th>Importado em</th><th>Ações</th></tr></thead>
+          <tbody id="propertiesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ARTICLES PANEL -->
+    <div class="panel" id="panel-articles">
+      <div class="panel-header">
+        <h2 class="panel-title">Gerenciar Artigos</h2>
+        <div style="display:flex;gap:8px">
+          <input type="text" class="search-input" placeholder="Buscar artigos..." id="articleSearch" oninput="filterArticles()" />
+          <button class="btn btn-sm btn-accent" onclick="openArticleModal()">+ Novo Artigo</button>
+        </div>
+      </div>
+      <div class="table-container" id="articlesContainer">
+        <table>
+          <thead><tr><th>Título</th><th>Categoria</th><th>Data</th><th>Tags</th><th>Ações</th></tr></thead>
+          <tbody id="articlesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SERVICES PANEL -->
+    <div class="panel" id="panel-services">
+      <div class="panel-header">
+        <h2 class="panel-title">Gerenciar Serviços</h2>
+        <button class="btn btn-sm btn-accent" onclick="openServiceModal()">+ Novo Serviço</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Serviço</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="servicesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TESTIMONIALS PANEL -->
+    <div class="panel" id="panel-testimonials">
+      <div class="panel-header">
+        <h2 class="panel-title">Gerenciar Depoimentos</h2>
+        <button class="btn btn-sm btn-accent" onclick="openTestimonialModal()">+ Novo Depoimento</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Nome</th><th>Função</th><th>Depoimento</th><th>Ações</th></tr></thead>
+          <tbody id="testimonialsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FAQ PANEL -->
+    <div class="panel" id="panel-faq">
+      <div class="panel-header">
+        <h2 class="panel-title">Gerenciar FAQ</h2>
+        <button class="btn btn-sm btn-accent" onclick="openFaqModal()">+ Nova Pergunta</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Pergunta</th><th>Status</th><th>Ordem</th><th>Ações</th></tr></thead>
+          <tbody id="faqBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SEO PANEL -->
+    <div class="panel" id="panel-seo">
+      <div class="panel-header">
+        <h2 class="panel-title">Configurações de SEO</h2>
+      </div>
+      <div class="table-container" style="padding:24px">
+        <form onsubmit="event.preventDefault();alert('Configurações de SEO salvas com sucesso!')">
+          <div class="form-group">
+            <label class="form-label">Título da Página Principal</label>
+            <input type="text" class="form-input" value="LexLeilões — Assessoria Especializada em Leilões de Imóveis" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Meta Description</label>
+            <textarea class="form-input" style="min-height:80px;resize:vertical">Segurança jurídica para investir em leilões judiciais e extrajudiciais de imóveis. Assessoria completa da análise à posse do imóvel.</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">URL Canônica</label>
+            <input type="text" class="form-input" value="https://lexleiloes.com.br" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Google Analytics ID</label>
+            <input type="text" class="form-input" placeholder="G-XXXXXXXXXX" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sitemap</label>
+            <input type="text" class="form-input" value="/sitemap.xml" readonly style="color:var(--muted)" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">robots.txt</label>
+            <textarea class="form-input" style="min-height:80px;resize:vertical;font-family:monospace" readonly>User-agent: *
+Allow: /
+Sitemap: https://lexleiloes.com.br/sitemap.xml</textarea>
+          </div>
+          <button type="submit" class="btn btn-sm btn-accent" style="width:auto">Salvar Configurações</button>
+        </form>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modalTitle">Novo Artigo</h3>
+      <button class="modal-close" onclick="closeModal()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="modalBody">
+      <!-- Dynamic -->
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/api/properties';
+const ADMIN_TOKEN = prompt('Digite o token de admin:') || '';
+
+// ===== DATA STORE =====
+let articles = [
+  {id:1,title:"Guia Completo para Participar do Primeiro Leilão de Imóvel",category:"Guias",date:"15 Jun 2026",summary:"Tudo que você precisa saber antes de dar o primeiro lance.",tags:["leilão","guia","iniciante"],status:"published"},
+  {id:2,title:"Due Diligence Imobiliária: O Passo Mais Importante do Leilão",category:"Jurídico",date:"08 Jun 2026",summary:"Entenda por que a análise jurídica prévia do imóvel é fundamental.",tags:["due diligence","jurídico","riscos"],status:"published"},
+  {id:3,title:"Leilão Judicial vs Extrajudicial: Qual a Diferença?",category:"Comparativos",date:"01 Jun 2026",summary:"As principais diferenças entre os dois tipos de leilão.",tags:["judicial","extrajudicial","comparativo"],status:"published"}
+];
+
+const defaultServices = [
+  "Assessoria em Leilões Judiciais","Leilões Extrajudiciais","Análise de Editais",
+  "Due Diligence Imobiliária","Defesa do Arrematante","Imissão na Posse",
+  "Regularização de Imóveis","Consultoria para Investidores"
+];
+let services = defaultServices.map((s,i) => ({id:i+1,name:s,status:"active"}));
+
+let testimonials = [
+  {id:1,name:"Roberto Almeida",role:"Investidor",text:"Comprei meu primeiro imóvel em leilão com a assessoria da LexLeilões. Economizei 52%. Processo transparente e seguro.",stars:5},
+  {id:2,name:"Ana Beatriz Costa",role:"Empresária",text:"A equipe conduziu toda a due diligence e identificou um ônus que eu jamais teria percebido.",stars:5},
+  {id:3,name:"Marcos Oliveira",role:"Engenheiro",text:"Já participei de 4 leilões com eles. Em todos o retorno superou as expectativas.",stars:5},
+  {id:4,name:"Juliana Santos",role:"Advogada",text:"Como advogada, sou exigente. A LexLeilões superou minhas expectativas.",stars:5},
+  {id:5,name:"Felipe Torres",role:"Corretor",text:"Indico para todos os meus clientes. O diferencial é a segurança.",stars:5}
+];
+
+let faqs = [
+  {id:1,question:"O que é um leilão judicial de imóveis?",answer:"É um procedimento judicial onde imóveis são vendidos para pagamento de dívidas.",status:"active",order:1},
+  {id:2,question:"Posso visitar o imóvel antes de arrematar?",answer:"Sim, na maioria dos casos é possível agendar visitas.",status:"active",order:2},
+  {id:3,question:"Quais são os riscos de arrematar um imóvel em leilão?",answer:"Os principais riscos envolvem ônus ocultos, dívidas fiscais e ocupação.",status:"active",order:3},
+  {id:4,question:"Quanto tempo leva para receber as chaves?",answer:"O prazo varia de 30 a 90 dias após o pagamento.",status:"active",order:4},
+  {id:5,question:"É possível financiar um imóvel arrematado em leilão?",answer:"Sim, diversos bancos oferecem linhas de crédito específicas.",status:"active",order:5},
+  {id:6,question:"Qual a economia real em comprar imóveis em leilão?",answer:"Os descontos médios variam de 30% a 60% abaixo do valor de mercado.",status:"active",order:6}
+];
+
+let nextId = 100;
+let editingId = null;
+
+// ===== LOGIN =====
+function handleLogin(e){
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPass').value;
+  if(email === 'admin@lexleiloes.com.br' && pass === '123456'){
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('adminPage').style.display = 'block';
+    renderAll();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+function handleLogout(){
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('adminPage').style.display = 'none';
+}
+
+// ===== NAV =====
+document.querySelectorAll('.sidebar-link').forEach(link => {
+  link.addEventListener('click', () => {
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + link.dataset.panel).classList.add('active');
+  });
+});
+
+// ===== RENDER =====
+function renderAll(){
+  renderArticles();
+  renderServices();
+  renderTestimonialsTable();
+  renderFaq();
+  loadProperties();
+}
+
+function renderArticles(filter){
+  const body = document.getElementById('articlesBody');
+  const list = filter ? articles.filter(a => a.title.toLowerCase().includes(filter)) : articles;
+  body.innerHTML = list.map(a => `<tr>
+    <td><strong>${a.title}</strong></td>
+    <td><span class="tag">${a.category}</span></td>
+    <td>${a.date}</td>
+    <td>${a.tags.map(t => `<span class="tag" style="margin-right:4px">${t}</span>`).join('')}</td>
+    <td>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;margin-right:4px" onclick="editArticle(${a.id})">Editar</button>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;color:var(--danger)" onclick="deleteArticle(${a.id})">Excluir</button>
+    </td>
+  </tr>`).join('');
+}
+
+function filterArticles(){
+  const val = document.getElementById('articleSearch').value.toLowerCase();
+  renderArticles(val);
+}
+
+function renderServices(){
+  const body = document.getElementById('servicesBody');
+  body.innerHTML = services.map(s => `<tr>
+    <td>${s.name}</td>
+    <td><span class="badge badge-success">Ativo</span></td>
+    <td>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;margin-right:4px" onclick="editService(${s.id})">Editar</button>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;color:var(--danger)" onclick="deleteService(${s.id})">Excluir</button>
+    </td>
+  </tr>`).join('');
+}
+
+function renderTestimonialsTable(){
+  const body = document.getElementById('testimonialsBody');
+  body.innerHTML = testimonials.map(t => `<tr>
+    <td><strong>${t.name}</strong></td>
+    <td>${t.role}</td>
+    <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">"${t.text}"</td>
+    <td>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;margin-right:4px" onclick="editTestimonial(${t.id})">Editar</button>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;color:var(--danger)" onclick="deleteTestimonial(${t.id})">Excluir</button>
+    </td>
+  </tr>`).join('');
+}
+
+function renderFaq(){
+  const body = document.getElementById('faqBody');
+  body.innerHTML = faqs.map(f => `<tr>
+    <td>${f.question}</td>
+    <td><span class="badge badge-success">${f.status}</span></td>
+    <td>${f.order}</td>
+    <td>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;margin-right:4px" onclick="editFaq(${f.id})">Editar</button>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;color:var(--danger)" onclick="deleteFaq(${f.id})">Excluir</button>
+    </td>
+  </tr>`).join('');
+}
+
+// ===== PROPERTIES (via API) =====
+let allProperties = [];
+
+async function loadProperties(){
+  try {
+    const r = await fetch(`${API_BASE}?limit=100&status=all`);
+    const json = await r.json();
+    allProperties = json.properties || [];
+  } catch(e) {
+    console.error('Erro ao carregar imóveis:', e);
+    allProperties = [];
+  }
+  renderProperties();
+}
+
+function renderProperties(filter){
+  const body = document.getElementById('propertiesBody');
+  const list = filter ? allProperties.filter(p => (p.endereco||'').toLowerCase().includes(filter) || (p.matricula||'').toLowerCase().includes(filter)) : allProperties;
+  document.getElementById('propertyCount').textContent = `${list.length} imóveis`;
+  body.innerHTML = list.map(p => `<tr>
+    <td><code>${p.matricula || '-'}</code></td>
+    <td>${p.endereco || p.logradouro || '-'}</td>
+    <td>${p.cidade || '-'}</td>
+    <td>${p.valor_avaliacao ? 'R$ '+Number(p.valor_avaliacao).toLocaleString('pt-BR') : '-'}</td>
+    <td><span class="tag">${p.fonte || '-'}</span></td>
+    <td>${p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}</td>
+    <td>
+      <button class="btn btn-sm btn-outline" style="width:auto;padding:6px 12px;color:var(--danger)" onclick="deleteProperty('${p.id}')">Excluir</button>
+    </td>
+  </tr>`).join('');
+}
+
+function filterProperties(){
+  const val = document.getElementById('propertySearch').value.toLowerCase();
+  renderProperties(val);
+}
+
+async function deleteProperty(id){
+  if(!confirm('Excluir este imóvel permanentemente?')) return;
+  if(!ADMIN_TOKEN) return alert('Token de admin não informado');
+  try {
+    const r = await fetch(`${API_BASE}?id=${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+    });
+    const json = await r.json();
+    if(!r.ok) return alert('Erro ao excluir: ' + (json.error || r.status));
+    allProperties = allProperties.filter(p => p.id !== id);
+    renderProperties();
+  } catch(e) {
+    alert('Erro de conexão: ' + e.message);
+  }
+}
+
+// ===== MODAL =====
+function openModal(title, bodyHTML){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHTML;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  editingId = null;
+}
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closeModal();
+});
+
+// ===== ARTICLE CRUD =====
+function openArticleModal(data){
+  const d = data || {title:'',category:'',summary:'',tags:[],status:'published'};
+  const isEdit = !!data;
+  openModal(isEdit ? 'Editar Artigo' : 'Novo Artigo', `
+    <div class="form-group"><label class="form-label">Título</label><input type="text" class="form-input" id="f-title" value="${d.title}" /></div>
+    <div class="form-group"><label class="form-label">Categoria</label>
+      <select class="form-input" id="f-category">
+        <option value="Guias" ${d.category==='Guias'?'selected':''}>Guias</option>
+        <option value="Jurídico" ${d.category==='Jurídico'?'selected':''}>Jurídico</option>
+        <option value="Comparativos" ${d.category==='Comparativos'?'selected':''}>Comparativos</option>
+        <option value="Mercado" ${d.category==='Mercado'?'selected':''}>Mercado</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Resumo</label><textarea class="form-input" id="f-summary" style="min-height:60px">${d.summary}</textarea></div>
+    <div class="form-group"><label class="form-label">Tags (separadas por vírgula)</label><input type="text" class="form-input" id="f-tags" value="${d.tags.join(', ')}" /></div>
+    <div class="form-group"><label class="form-label">Imagem URL</label><input type="text" class="form-input" id="f-image" value="${d.image||''}" placeholder="https://..." /></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="width:auto" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" style="width:auto" onclick="saveArticle()">${isEdit ? 'Salvar' : 'Criar Artigo'}</button>
+    </div>
+  `);
+  editingId = d.id || null;
+}
+
+function saveArticle(){
+  const title = document.getElementById('f-title').value.trim();
+  const category = document.getElementById('f-category').value;
+  const summary = document.getElementById('f-summary').value.trim();
+  const tags = document.getElementById('f-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  if(!title) return alert('O título é obrigatório');
+  if(editingId){
+    const a = articles.find(x => x.id === editingId);
+    if(a){a.title=title;a.category=category;a.summary=summary;a.tags=tags}
+  } else {
+    articles.unshift({id:nextId++,title,category,date:new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}),summary,tags,status:'published'});
+  }
+  renderArticles();
+  closeModal();
+}
+
+function editArticle(id){
+  const a = articles.find(x => x.id === id);
+  if(a) openArticleModal(a);
+}
+
+function deleteArticle(id){
+  if(!confirm('Excluir este artigo?')) return;
+  articles = articles.filter(x => x.id !== id);
+  renderArticles();
+}
+
+// ===== SERVICE CRUD =====
+function openServiceModal(data){
+  const d = data || {name:''};
+  openModal(data ? 'Editar Serviço' : 'Novo Serviço', `
+    <div class="form-group"><label class="form-label">Nome do Serviço</label><input type="text" class="form-input" id="f-svc-name" value="${d.name}" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="width:auto" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" style="width:auto" onclick="saveService()">${data?'Salvar':'Criar'}</button>
+    </div>
+  `);
+  editingId = d.id || null;
+}
+
+function saveService(){
+  const name = document.getElementById('f-svc-name').value.trim();
+  if(!name) return alert('Nome é obrigatório');
+  if(editingId){
+    const s = services.find(x => x.id === editingId);
+    if(s) s.name = name;
+  } else {
+    services.push({id:nextId++,name,status:'active'});
+  }
+  renderServices();
+  closeModal();
+}
+
+function editService(id){
+  const s = services.find(x => x.id === id);
+  if(s) openServiceModal(s);
+}
+
+function deleteService(id){
+  if(!confirm('Excluir este serviço?')) return;
+  services = services.filter(x => x.id !== id);
+  renderServices();
+}
+
+// ===== TESTIMONIAL CRUD =====
+function openTestimonialModal(data){
+  const d = data || {name:'',role:'',text:'',stars:5};
+  openModal(data ? 'Editar Depoimento' : 'Novo Depoimento', `
+    <div class="form-group"><label class="form-label">Nome</label><input type="text" class="form-input" id="f-t-name" value="${d.name}" /></div>
+    <div class="form-group"><label class="form-label">Função</label><input type="text" class="form-input" id="f-t-role" value="${d.role}" /></div>
+    <div class="form-group"><label class="form-label">Depoimento</label><textarea class="form-input" id="f-t-text" style="min-height:80px">${d.text}</textarea></div>
+    <div class="form-group"><label class="form-label">Estrelas</label>
+      <select class="form-input" id="f-t-stars">
+        ${[5,4,3,2,1].map(n => `<option value="${n}" ${d.stars===n?'selected':''}>${'★'.repeat(n)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="width:auto" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" style="width:auto" onclick="saveTestimonial()">${data?'Salvar':'Criar'}</button>
+    </div>
+  `);
+  editingId = d.id || null;
+}
+
+function saveTestimonial(){
+  const name = document.getElementById('f-t-name').value.trim();
+  const role = document.getElementById('f-t-role').value.trim();
+  const text = document.getElementById('f-t-text').value.trim();
+  const stars = parseInt(document.getElementById('f-t-stars').value);
+  if(!name || !text) return alert('Nome e depoimento são obrigatórios');
+  if(editingId){
+    const t = testimonials.find(x => x.id === editingId);
+    if(t){t.name=name;t.role=role;t.text=text;t.stars=stars}
+  } else {
+    testimonials.push({id:nextId++,name,role,text,stars});
+  }
+  renderTestimonialsTable();
+  closeModal();
+}
+
+function editTestimonial(id){
+  const t = testimonials.find(x => x.id === id);
+  if(t) openTestimonialModal(t);
+}
+
+function deleteTestimonial(id){
+  if(!confirm('Excluir este depoimento?')) return;
+  testimonials = testimonials.filter(x => x.id !== id);
+  renderTestimonialsTable();
+}
+
+// ===== FAQ CRUD =====
+function openFaqModal(data){
+  const d = data || {question:'',answer:'',order:faqs.length+1};
+  openModal(data ? 'Editar FAQ' : 'Nova Pergunta', `
+    <div class="form-group"><label class="form-label">Pergunta</label><input type="text" class="form-input" id="f-faq-q" value="${d.question}" /></div>
+    <div class="form-group"><label class="form-label">Resposta</label><textarea class="form-input" id="f-faq-a" style="min-height:80px">${d.answer}</textarea></div>
+    <div class="form-group"><label class="form-label">Ordem</label><input type="number" class="form-input" id="f-faq-o" value="${d.order}" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="width:auto" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" style="width:auto" onclick="saveFaq()">${data?'Salvar':'Criar'}</button>
+    </div>
+  `);
+  editingId = d.id || null;
+}
+
+function saveFaq(){
+  const question = document.getElementById('f-faq-q').value.trim();
+  const answer = document.getElementById('f-faq-a').value.trim();
+  const order = parseInt(document.getElementById('f-faq-o').value) || faqs.length + 1;
+  if(!question || !answer) return alert('Pergunta e resposta são obrigatórios');
+  if(editingId){
+    const f = faqs.find(x => x.id === editingId);
+    if(f){f.question=question;f.answer=answer;f.order=order}
+  } else {
+    faqs.push({id:nextId++,question,answer,status:'active',order});
+  }
+  renderFaq();
+  closeModal();
+}
+
+function editFaq(id){
+  const f = faqs.find(x => x.id === id);
+  if(f) openFaqModal(f);
+}
+
+function deleteFaq(id){
+  if(!confirm('Excluir esta pergunta?')) return;
+  faqs = faqs.filter(x => x.id !== id);
+  renderFaq();
+}
+</script>
+</body>
+</html>
