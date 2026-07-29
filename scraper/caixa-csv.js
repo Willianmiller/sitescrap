@@ -63,22 +63,23 @@ function mapToProperty(row) {
   return {
     source: 'caixa',
     source_id: `caixa-${index}`,
-    title: `Imóvel Caixa em ${cidadeRaw} - ${tipo}`,
-    city: cidadeRaw,
-    state: 'RJ',
+    cidade: cidadeRaw,
+    estado: 'RJ',
+    endereco: `${row['logradouro'] || ''}, ${row['bairro'] || ''}`.trim().replace(/^,\s*/, ''),
+    bairro: row['bairro'] || '',
     property_type: mapPropertyType(tipo),
     sale_type: 'venda_direta',
-    market_value: market,
-    auction_value: auction,
-    discount_pct: discount,
-    bedrooms: parseInt(row['qt quartos'] || row['quartos'] || '0') || null,
-    area: row['area privativa'] || row['area'] || '',
-    address: `${row['logradouro'] || ''}, ${row['bairro'] || ''}`.trim().replace(/^,\s*/, ''),
-    image_url: row['url da foto'] || row['foto'] || '',
-    details_url: link,
-    badge: 'Caixa',
+    valor_avaliacao: market,
+    valor_lance_inicial: auction,
+    descontos_pct: discount > 0 ? `${discount}%` : null,
+    quartos: parseInt(row['qt quartos'] || row['quartos'] || '0') || null,
+    area_imovel: row['area privativa'] ? parseFloat(row['area privativa'].replace(',', '.')) : null,
+    leilao_tipo: 'Caixa',
+    img_urls: row['url da foto'] || row['foto'] ? [row['url da foto'] || row['foto']] : null,
+    url: link,
+    description: `Imóvel Caixa em ${cidadeRaw} - ${tipo}`,
     status: 'active',
-    auction_date: row['data do leilao'] || row['data leilão'] || null
+    leilao_data: row['data do leilao'] || row['data leilão'] || null
   };
 }
 
@@ -100,7 +101,7 @@ async function scrape() {
   const rows = parseCSV(csvText);
   console.log(`${rows.length} linhas encontradas no CSV`);
 
-  const properties = rows.map(mapToProperty).filter(p => p.auction_value > 0);
+  const properties = rows.map(mapToProperty).filter(p => p.valor_lance_inicial > 0);
   console.log(`${properties.length} imóveis válidos (com valor de venda)`);
 
   await upsertProperties(properties);

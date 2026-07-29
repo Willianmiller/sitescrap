@@ -2,7 +2,7 @@ name: Scrape Leilões RJ
 
 on:
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 9 * * 1'
   workflow_dispatch:
 
 jobs:
@@ -20,18 +20,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Scrape Caixa CSV
-        run: node scraper/caixa-csv.js
+      - name: Scrape Leilão Imóvel (Apify)
+        run: node scraper/apify-leilaoimovel.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-
-      - name: Install Playwright
-        run: npx playwright install chromium
-
-      - name: Scrape LeilaoImovel
-        run: node scraper/leilaoimovel.js
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        continue-on-error: true
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          MAX_ITEMS: '200'

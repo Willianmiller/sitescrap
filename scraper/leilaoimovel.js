@@ -153,24 +153,26 @@ async function scrape() {
       return {
         source: 'leilaoimovel',
         source_id: `leilaoimovel-${idx}-${Date.now()}`,
-        title: item.title || `Imóvel em ${city || 'RJ'}`,
-        city: city || 'Rio de Janeiro',
-        state: state,
+        cidade: city || 'Rio de Janeiro',
+        estado: state,
+        endereco: item.title || '',
         sale_type: saleType,
         property_type: 'Outros',
-        market_value: Math.round(priceValue * 1.4),
-        auction_value: priceValue,
-        discount_pct: 0,
-        image_url: item.image || '',
-        details_url: item.url,
-        badge: item.badge || 'Leilão',
-        status: 'active',
-        description: item.description || item.title || ''
+        valor_avaliacao: Math.round(priceValue * 1.4),
+        valor_lance_inicial: priceValue,
+        descontos_pct: null,
+        leilao_tipo: item.badge || 'Leilão',
+        img_urls: item.image ? [item.image] : null,
+        url: item.url,
+        description: item.description || item.title || '',
+        status: 'active'
       };
-    }).filter(p => p.auction_value > 0);
+    }).filter(p => p.valor_lance_inicial > 0);
 
-    console.log(`${properties.length} imóveis do RJ prontos para inserir`);
-    await upsertProperties(properties);
+    // Filtra apenas leilões judiciais do RJ
+    const filtered = properties.filter(p => p.sale_type === 'judicial');
+    console.log(`${filtered.length} imóveis judiciais do RJ prontos para inserir`);
+    await upsertProperties(filtered);
 
   } catch (err) {
     console.error('Erro durante scraping:', err.message);

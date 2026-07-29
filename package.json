@@ -6,10 +6,12 @@
   "scripts": {
     "scrape:caixa": "node scraper/caixa-csv.js",
     "scrape:leilaoimovel": "node scraper/leilaoimovel.js",
-    "scrape:all": "node scraper/caixa-csv.js && node scraper/leilaoimovel.js"
+    "scrape:apify": "node scraper/apify-leilaoimovel.js",
+    "scrape:all": "node scraper/apify-leilaoimovel.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "apify-client": "^2.23.4",
     "playwright": "^1.40.0"
   }
 }
