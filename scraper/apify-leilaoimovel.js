@@ -1,12 +1,19 @@
 const { ApifyClient } = require('apify-client');
-const { upsertProperties } = require('./supabase');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const MAX_ITEMS = parseInt(process.env.MAX_ITEMS || '200', 10);
+const DATASET_NAME = 'lexleiloes-properties';
 
 if (!APIFY_TOKEN) {
   console.error('APIFY_TOKEN é obrigatório');
   process.exit(1);
+}
+
+function parseDate(str) {
+  if (!str) return null;
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`;
+  return str;
 }
 
 async function scrape() {
@@ -31,13 +38,6 @@ async function scrape() {
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
   console.log(`${items.length} imóveis retornados pelo Ator`);
 
-  function parseDate(str) {
-    if (!str) return null;
-    const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/);
-    if (m) return `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`;
-    return str;
-  }
-
   const properties = items.map(item => ({
     source: 'leilaoimovel',
     source_id: `leilaoimovel-${item.listing?.listing_id || item.record_id}`,
@@ -55,11 +55,23 @@ async function scrape() {
     url: item.entity?.url || '',
     description: item.entity?.title || '',
     status: 'active',
-    leilao_data: parseDate(item.listing?.auction?.closing_date)
+    leilao_data: parseDate(item.listing?.auction?.closing_date),
+    updated_at: new Date().toISOString()
   })).filter(p => p.valor_lance_inicial > 0 && p.img_urls);
 
-  console.log(`${properties.length} imóveis mapeados para inserir`);
-  await upsertProperties(properties);
+  console.log(`${properties.length} imóveis mapeados`);
+
+  const dataset = await client.dataset(DATASET_NAME).get();
+  const datasetId = dataset.id;
+
+  const existingDataset = client.dataset(datasetId);
+  await existingDataset.clear();
+
+  if (properties.length > 0) {
+    await existingDataset.pushItems(properties);
+    console.log(`${properties.length} imóveis salvos no dataset "${DATASET_NAME}" (ID: ${datasetId})`);
+  }
+
   console.log('Apify scraper concluído!');
 }
 

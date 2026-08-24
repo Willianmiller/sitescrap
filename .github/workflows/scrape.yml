@@ -23,7 +23,5 @@ jobs:
       - name: Scrape Leilão Imóvel (Apify)
         run: node scraper/apify-leilaoimovel.js
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
           MAX_ITEMS: '200'

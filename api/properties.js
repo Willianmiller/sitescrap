@@ -1,89 +1,59 @@
-const { createClient } = require('@supabase/supabase-js');
+const { ApifyClient } = require('apify-client');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const APIFY_TOKEN = process.env.APIFY_TOKEN;
+const DATASET_NAME = 'lexleiloes-properties';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-
-  // DELETE — admin apenas
-  if (req.method === 'DELETE') {
-    const token = req.headers.authorization;
-    if (!token || token !== `Bearer ${process.env.ADMIN_TOKEN}`) {
-      return res.status(401).json({ error: 'Não autorizado' });
-    }
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ error: 'Supabase não configurado' });
-    }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { id } = req.query;
-    if (!id) return res.status(400).json({ error: 'ID é obrigatório' });
-    const { error } = await supabase.from('properties').delete().eq('id', id);
-    if (error) return res.status(500).json({ error: error.message });
-    return res.json({ success: true });
-  }
-
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return res.status(500).json({ error: 'Supabase não configurado' });
+  if (!APIFY_TOKEN) {
+    return res.status(500).json({ error: 'APIFY_TOKEN não configurado' });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
   try {
+    const client = new ApifyClient({ token: APIFY_TOKEN });
+    const dataset = await client.dataset(DATASET_NAME).get();
+    const { items } = await client.dataset(dataset.id).listItems({ clean: true });
+
+    let properties = items;
+
     const {
-      state = 'RJ',
+      state,
       city,
       type,
-      source,
       status = 'active',
-      limit = 50,
+      limit = 200,
       offset = 0,
       latest
     } = req.query;
 
-    let query = supabase
-      .from('properties')
-      .select('*', { count: 'exact' })
-      .order('updated_at', { ascending: false });
+    if (latest) {
+      const sorted = properties.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+      return res.json({ lastUpdate: sorted[0]?.updated_at || null });
+    }
 
-    if (status !== 'all') query = query.eq('status', status);
-
-    if (state) query = query.eq('estado', state.toUpperCase());
-    if (city) query = query.ilike('cidade', `%${city}%`);
+    if (status !== 'all') properties = properties.filter(p => p.status === status);
+    if (state) properties = properties.filter(p => p.estado?.toUpperCase() === state.toUpperCase());
+    if (city) properties = properties.filter(p => p.cidade?.toLowerCase().includes(city.toLowerCase()));
     if (type && type !== 'all') {
       if (type === 'judicial' || type === 'extrajudicial') {
-        query = query.eq('sale_type', type);
+        properties = properties.filter(p => p.sale_type === type);
       } else {
-        query = query.ilike('property_type', `%${type}%`);
+        properties = properties.filter(p => p.property_type?.toLowerCase().includes(type.toLowerCase()));
       }
     }
-    if (source) query = query.eq('source', source);
 
-    if (latest) {
-      const { data, error } = await supabase
-        .from('properties')
-        .select('updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(1);
-      if (error) throw error;
-      return res.json({ lastUpdate: data[0]?.updated_at || null });
-    }
-
-    query = query.range(Number(offset), Number(offset) + Number(limit) - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) throw error;
+    const total = properties.length;
+    properties = properties.slice(Number(offset), Number(offset) + Number(limit));
 
     return res.json({
-      properties: data || [],
-      count: count || 0,
+      properties,
+      count: total,
       limit: Number(limit),
       offset: Number(offset)
     });
