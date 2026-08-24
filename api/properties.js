@@ -4,6 +4,36 @@ const path = require('path');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 
+function parseDate(str) {
+  if (!str) return null;
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`;
+  return str;
+}
+
+function mapProperty(item) {
+  return {
+    source: 'leilaoimovel',
+    source_id: `leilaoimovel-${item.listing?.listing_id || item.record_id}`,
+    cidade: item.location?.city?.replace('Leilão no ', '') || '',
+    estado: item.location?.state || 'RJ',
+    endereco: item.location?.full_address || '',
+    property_type: item.property?.property_type || null,
+    sale_type: 'judicial',
+    valor_avaliacao: item.pricing?.appraisal_price || null,
+    valor_lance_inicial: item.pricing?.price || 0,
+    descontos_pct: item.pricing?.discount_percent ? `${item.pricing.discount_percent}%` : null,
+    leilao_tipo: item.listing?.categories?.[0] || 'Judicial',
+    img_urls: (item.media?.main_image_url && !item.media.main_image_url.includes('sem-foto'))
+      ? [item.media.main_image_url] : null,
+    url: item.entity?.url || '',
+    description: item.entity?.title || '',
+    status: 'active',
+    leilao_data: parseDate(item.listing?.auction?.closing_date),
+    updated_at: new Date().toISOString()
+  };
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -32,9 +62,9 @@ module.exports = async (req, res) => {
       return res.json({ properties: [], count: 0, lastUpdate: null });
     }
 
-    const { items } = await client.dataset(datasetId).listItems({ clean: true });
+    const { items: rawItems } = await client.dataset(datasetId).listItems({ clean: true });
 
-    let properties = items;
+    let properties = rawItems.map(mapProperty).filter(p => p.valor_lance_inicial > 0);
 
     const {
       state,
