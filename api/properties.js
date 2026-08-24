@@ -1,7 +1,8 @@
 const { ApifyClient } = require('apify-client');
+const fs = require('fs');
+const path = require('path');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const ACTOR_ID = 'fatihtahta/leilao-imovel-scraper';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,13 +19,19 @@ module.exports = async (req, res) => {
   try {
     const client = new ApifyClient({ token: APIFY_TOKEN });
 
-    const { items: runsList } = await client.actor(ACTOR_ID).lastRuns({ limit: 5 });
-    const successfulRun = (runsList || []).find(r => r.status === 'SUCCEEDED');
-    if (!successfulRun) {
+    let datasetId;
+    try {
+      const configPath = path.join(__dirname, 'dataset-config.json');
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      datasetId = config.datasetId;
+    } catch (e) {
+      return res.status(500).json({ error: 'dataset-config.json não encontrado' });
+    }
+
+    if (!datasetId) {
       return res.json({ properties: [], count: 0, lastUpdate: null });
     }
 
-    const datasetId = successfulRun.defaultDatasetId;
     const { items } = await client.dataset(datasetId).listItems({ clean: true });
 
     let properties = items;

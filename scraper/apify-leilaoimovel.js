@@ -1,4 +1,6 @@
 const { ApifyClient } = require('apify-client');
+const fs = require('fs');
+const path = require('path');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const MAX_ITEMS = parseInt(process.env.MAX_ITEMS || '200', 10);
@@ -59,6 +61,15 @@ async function scrape() {
   })).filter(p => p.valor_lance_inicial > 0 && p.img_urls);
 
   console.log(`${properties.length} imóveis mapeados. Dataset ID: ${run.defaultDatasetId}`);
+
+  try {
+    const configPath = path.join(__dirname, '..', 'api', 'dataset-config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ datasetId: run.defaultDatasetId, updatedAt: new Date().toISOString() }, null, 2));
+    console.log('dataset-config.json atualizado');
+  } catch (e) {
+    console.error('Erro ao salvar dataset-config.json:', e.message);
+  }
+
   console.log('Apify scraper concluído!');
 }
 
