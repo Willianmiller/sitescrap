@@ -20,11 +20,10 @@ function httpGet(url) {
 }
 
 const VEHICLE_KEYWORDS = [
-  'veículo', 'veiculos', 'veículo', 'carro', 'carros', 'motocicleta', 'motocicletas',
+  'veículo', 'veiculos', 'carro', 'carros', 'motocicleta', 'motocicletas',
   'sucata', 'sucatas', 'automóvel', 'automovel', 'fiat', 'honda', 'toyota',
   'chevrolet', 'vw ', 'volkswagen', 'hyundai', 'renault', 'peugeot', 'citroen',
-  'ford ', 'jeep ', 'nissan', 'mitsubishi', 'kia ', 'suzuki', 'berlingo',
-  'saveiro', 'corsa', 'onix', 'hb20', 'mobi', 'pulse', 'fastback',
+  'ford ', 'jeep ', 'nissan', 'mitsubishi', 'kia ', 'suzuki',
   'veic', 'moto ', 'motos', 'caminhão', 'caminhao', 'caminhonete',
   'lote de carro', 'lote de moto', 'recuperáveis', 'recuperaveis'
 ];
@@ -41,17 +40,31 @@ function parseDate(str) {
   return null;
 }
 
+function extractCityState(title, desc) {
+  const text = title + ' ' + (desc || '');
+  const m1 = text.match(/[-–]\s*([A-ZÀ-Ú][A-ZÀ-Ú\s]+?)\s*[-–]\s*([A-Z]{2})\b/);
+  if (m1) return { cidade: m1[1].trim(), estado: m1[2].trim() };
+  const m2 = text.match(/\bEM\s+([A-Z][A-Z\s]+?)\/([A-Z]{2})\b/);
+  if (m2) return { cidade: m2[1].trim(), estado: m2[2].trim() };
+  const m3 = text.match(/\b([A-ZÀ-Ú][a-záàãâéêíóôõúçA-ZÀ-Ú\s]+?)\/([A-Z]{2})\b/);
+  if (m3 && m3[1].trim().length < 30 && m3[1].trim().length > 2) {
+    const city = m3[1].trim().replace(/\s+/g, ' ');
+    if (!/LEILÃO|EDITAL|COMARCA|VARA/i.test(city)) return { cidade: city, estado: m3[2].trim() };
+  }
+  return { cidade: '', estado: '' };
+}
+
 function extractListings(html) {
   const listings = [];
-  const cardRegex = /<div class="card h-100\s+box-leilao">([\s\S]*?)(?=<div class="card h-100\s+box-leilao">|<div class="row mt-4")/g;
-  let match;
+  const parts = html.split('box-leilao');
 
-  while ((match = cardRegex.exec(html)) !== null) {
-    const block = match[1];
+  for (let i = 1; i < parts.length; i++) {
+    const block = parts[i];
 
     const hrefMatch = block.match(/href="(https:\/\/www\.rjleiloes\.com\.br\/leilao\/(\d+)\/lotes)"/);
     const url = hrefMatch ? hrefMatch[1] : '';
     const id = hrefMatch ? hrefMatch[2] : '';
+    if (!id) continue;
 
     const imgMatch = block.match(/<img[^>]+src="([^"]+)"[^>]*>/);
     const img = imgMatch ? imgMatch[1] : '';
@@ -69,20 +82,23 @@ function extractListings(html) {
     const proposalDate = proposalMatch ? proposalMatch[1].replace(/<[^>]+>/g, '').trim() : '';
 
     let descText = '';
-    const descMatch = block.match(/<div class="card-text[\s\S]*?<\/div>/);
+    const descMatch = block.match(/<div class="card-text mb-auto">([\s\S]*?)<\/div>\s*<\/div>/);
     if (descMatch) {
-      descText = descMatch[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      descText = descMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
-    const badges = [];
-    const badgeRegex = /<span class="badge[^"]*">([\s\S]*?)<\/span>/g;
-    let badgeMatch;
-    while ((badgeMatch = badgeRegex.exec(block)) !== null) {
-      badges.push(badgeMatch[1].replace(/<[^>]+>/g, '').trim());
-    }
+    const categoryMatch = block.match(/<div class="card-text">([A-Z\s]+)<\/div>/);
+    const category = categoryMatch ? categoryMatch[1].trim() : '';
+
+    const statusMatch = block.match(/label_leilao'>\s*([^<]+)/);
+    const status = statusMatch ? statusMatch[1].trim() : '';
+
+    const modalityMatch = block.match(/<h6 class="mb-1">([^<]+)<\/h6>/);
+    const modality = modalityMatch ? modalityMatch[1].trim() : '';
 
     listings.push({
-      id, url, img, title, dateStr, lotTime, proposalDate, descText, badges
+      id, url, img, title, dateStr, lotTime, proposalDate, descText,
+      category, status, modality
     });
   }
 
@@ -101,24 +117,14 @@ async function scrape() {
   console.log(`After vehicle filter: ${properties.length}`);
 
   const mapped = properties.map(item => {
-    const saleType = item.badges.find(b => /judicial/i.test(b)) ? 'judicial'
-      : item.badges.find(b => /extrajudicial/i.test(b)) ? 'extrajudicial'
-      : item.badges.find(b => /proposta/i.test(b)) ? 'proposta'
+    const saleType = /judicial/i.test(item.category) ? 'judicial'
+      : /extrajudicial/i.test(item.category) ? 'extrajudicial'
+      : /proposta/i.test(item.status) ? 'proposta'
+      : /público|administrativo/i.test(item.category) ? 'administrativo'
       : 'leilao';
 
-    const status = item.badges.find(b => /em andamento/i.test(b)) ? 'Em Andamento'
-      : item.badges.find(b => /em loteamento/i.test(b)) ? 'Em Loteamento'
-      : item.badges.find(b => /proposta/i.test(b)) ? 'Proposta'
-      : item.badges.find(b => /encerrad/i.test(b)) ? 'Encerrado'
-      : 'Ativo';
-
-    const cityMatch = item.title.match(/-?\s*([A-Z][A-Z\/]+(?:\/[A-Z]{2})?)\s*$/);
-    let city = '', state = '';
-    if (cityMatch) {
-      const parts = cityMatch[1].split('/');
-      city = parts[0] || '';
-      state = parts[1] || '';
-    }
+    const active = /encerrad/i.test(item.status) ? 'inactive' : 'active';
+    const { cidade, estado } = extractCityState(item.title, item.descText);
 
     const auctionDate = item.dateStr ? parseDate(item.dateStr) : null;
     const proposalDeadline = item.proposalDate ? parseDate(item.proposalDate) : null;
@@ -129,16 +135,17 @@ async function scrape() {
       listing_id: item.id,
       title: item.title,
       description: item.descText.substring(0, 500),
-      cidade: city,
-      estado: state,
+      cidade: cidade,
+      estado: estado,
       url: item.url,
       img_url: item.img,
       leilao_tipo: saleType,
       leilao_data: auctionDate,
       proposta_ate: proposalDeadline,
       horario_lote: item.lotTime,
-      status: status === 'Encerrado' ? 'inactive' : 'active',
-      badges: item.badges,
+      modalidade: item.modality,
+      status_label: item.status,
+      status: active,
       updated_at: new Date().toISOString()
     };
   });
@@ -146,7 +153,6 @@ async function scrape() {
   const outPath = path.join(__dirname, '..', 'api', 'rjleiloes-data.json');
   fs.writeFileSync(outPath, JSON.stringify({ properties: mapped, updatedAt: new Date().toISOString() }, null, 2));
   console.log(`Saved ${mapped.length} properties to ${outPath}`);
-
   return mapped;
 }
 
