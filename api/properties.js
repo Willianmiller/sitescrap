@@ -1,7 +1,7 @@
 const { ApifyClient } = require('apify-client');
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
-const DATASET_NAME = 'lexleiloes-properties';
+const ACTOR_ID = 'fatihtahta/leilao-imovel-scraper';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,8 +17,15 @@ module.exports = async (req, res) => {
 
   try {
     const client = new ApifyClient({ token: APIFY_TOKEN });
-    const dataset = await client.dataset(DATASET_NAME).get();
-    const { items } = await client.dataset(dataset.id).listItems({ clean: true });
+
+    const { items: runsList } = await client.actor(ACTOR_ID).lastRuns({ limit: 5 });
+    const successfulRun = (runsList || []).find(r => r.status === 'SUCCEEDED');
+    if (!successfulRun) {
+      return res.json({ properties: [], count: 0, lastUpdate: null });
+    }
+
+    const datasetId = successfulRun.defaultDatasetId;
+    const { items } = await client.dataset(datasetId).listItems({ clean: true });
 
     let properties = items;
 
@@ -33,7 +40,7 @@ module.exports = async (req, res) => {
     } = req.query;
 
     if (latest) {
-      const sorted = properties.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+      const sorted = [...properties].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
       return res.json({ lastUpdate: sorted[0]?.updated_at || null });
     }
 
