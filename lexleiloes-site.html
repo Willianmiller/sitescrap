@@ -516,17 +516,7 @@ ul{list-style:none}
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
 </button>
 <script>
-const PROPERTIES = [
-  {id:1,city:"São Paulo - SP",type:"judicial",market:680000,auction:312000,image:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80",badge:"Judicial",area:"65m²",bedrooms:2},
-  {id:2,city:"Rio de Janeiro - RJ",type:"extrajudicial",market:920000,auction:425000,image:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80",badge:"Extrajudicial",area:"80m²",bedrooms:3},
-  {id:3,city:"Belo Horizonte - MG",type:"judicial",market:550000,auction:198000,image:"https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80",badge:"Judicial",area:"55m²",bedrooms:2},
-  {id:4,city:"São Paulo - SP",type:"extrajudicial",market:1200000,auction:540000,image:"https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&q=80",badge:"Extrajudicial",area:"120m²",bedrooms:3},
-  {id:5,city:"Rio de Janeiro - RJ",type:"judicial",market:750000,auction:340000,image:"https://images.unsplash.com/photo-1572127360743-8d02b4d6f607?w=400&q=80",badge:"Judicial",area:"70m²",bedrooms:2},
-  {id:6,city:"Belo Horizonte - MG",type:"extrajudicial",market:890000,auction:410000,image:"https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80",badge:"Extrajudicial",area:"95m²",bedrooms:3},
-  {id:7,city:"São Paulo - SP",type:"judicial",market:450000,auction:189000,image:"https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=400&q=80",badge:"Judicial",area:"45m²",bedrooms:1},
-  {id:8,city:"Rio de Janeiro - RJ",type:"extrajudicial",market:1500000,auction:685000,image:"https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80",badge:"Extrajudicial",area:"150m²",bedrooms:4},
-  {id:9,city:"São Paulo - SP",type:"judicial",market:340000,auction:145000,image:"https://images.unsplash.com/photo-1600573472556-3b8e6b4d44b6?w=400&q=80",badge:"Judicial",area:"38m²",bedrooms:1}
-];
+let PROPERTIES = [];
 const ARTICLES = [
   {id:1,title:"Guia Completo para Participar do Primeiro Leilão de Imóvel",category:"Guias",date:"15 Jun 2026",summary:"Tudo que você precisa saber antes de dar o primeiro lance.",image:"https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?w=400&q=80"},
   {id:2,title:"Due Diligence Imobiliária: O Passo Mais Importante do Leilão",category:"Jurídico",date:"08 Jun 2026",summary:"Entenda por que a análise jurídica prévia é o fator determinante.",image:"https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&q=80"},
@@ -540,10 +530,30 @@ const TESTIMONIALS = [
   {name:"Felipe Torres",role:"Corretor",initial:"FT",text:"Indico para todos os meus clientes que querem investir em leilões. O diferencial é a segurança que eles proporcionam.",stars:5}
 ];
 function formatCurrency(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0})}
+async function loadProperties(){
+  try{
+    const r=await fetch('/api/properties?limit=100');
+    const json=await r.json();
+    PROPERTIES=(json.properties||[]).map((p,i)=>({
+      id:i+1,
+      city:p.cidade&&p.estado?p.cidade+' - '+p.estado:p.cidade||'',
+      type:p.sale_type||'judicial',
+      market:p.valor_avaliacao||0,
+      auction:p.valor_lance_inicial||0,
+      image:(p.img_urls&&p.img_urls[0])||'',
+      badge:p.leilao_tipo||'Judicial',
+      area:'',
+      bedrooms:0,
+      url:p.url||'',
+      description:p.description||''
+    }));
+  }catch(e){console.error('Erro ao carregar imóveis:',e)}
+}
 function renderProperties(filter){
   const grid=document.getElementById('oppGrid');
   const f=filter==='all'?PROPERTIES:PROPERTIES.filter(p=>p.type===filter||p.city.toLowerCase().includes(filter));
-  grid.innerHTML=f.map(p=>{const s=Math.round((1-p.auction/p.market)*100);return `<div class="opp-card reveal"><div class="opp-card-image"><img src="${p.image}" alt="Imóvel em ${p.city}" loading="lazy" /><span class="opp-card-badge">${p.badge}</span></div><div class="opp-card-body"><div class="opp-card-city"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${p.city} · ${p.bedrooms} dorm · ${p.area}</div><div class="opp-card-values"><span class="opp-card-market">${formatCurrency(p.market)}</span><span class="opp-card-auction">${formatCurrency(p.auction)}</span></div><div class="opp-card-save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>${s}% abaixo do mercado</div><button class="opp-card-action" onclick="this.textContent='Solicitação Enviada!';this.style.background='#22C55E';this.style.color='#0B0B0B'">Solicitar Análise</button></div></div>`}).join('');
+  if(f.length===0){grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:40px">Nenhum imóvel encontrado</p>';observeReveal();return}
+  grid.innerHTML=f.map(p=>{const s=p.market>0?Math.round((1-p.auction/p.market)*100):0;return `<div class="opp-card reveal"${p.url?' onclick="window.open(\''+p.url+'\',\'_blank\')"':''} style="${p.url?'cursor:pointer':''}"><div class="opp-card-image">${p.image?'<img src="'+p.image+'" alt="Imóvel em '+p.city+'" loading="lazy" />':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Sem imagem</div>'}<span class="opp-card-badge">${p.badge}</span></div><div class="opp-card-body"><div class="opp-card-city"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${p.city}</div><div class="opp-card-values"><span class="opp-card-market">${p.market>0?formatCurrency(p.market):''}</span><span class="opp-card-auction">${formatCurrency(p.auction)}</span></div>${s>0?'<div class="opp-card-save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'+s+'% abaixo do mercado</div>':''}<button class="opp-card-action" onclick="event.stopPropagation();this.textContent=\'Solicitação Enviada!\';this.style.background=\'#22C55E\';this.style.color=\'#0B0B0B\'">Solicitar Análise</button></div></div>`}).join('');
   observeReveal()
 }
 function renderBlog(){
@@ -587,7 +597,7 @@ document.getElementById('filters')?.addEventListener('click',e=>{const b=e.targe
 document.getElementById('navToggle').addEventListener('click',()=>{document.getElementById('navToggle').classList.toggle('active');document.getElementById('navLinks').classList.toggle('open')});
 document.querySelectorAll('#navLinks a').forEach(a=>a.addEventListener('click',()=>{document.getElementById('navToggle').classList.remove('active');document.getElementById('navLinks').classList.remove('open')}));
 function handleContactSubmit(e){e.preventDefault();const b=e.target.querySelector('button[type="submit"]');b.textContent='Mensagem Enviada!';b.style.background='#22C55E';setTimeout(()=>{b.textContent='Enviar Mensagem';b.style.background='';e.target.reset()},3000)}
-document.addEventListener('DOMContentLoaded',()=>{createParticles();renderProperties('all');renderBlog();renderTestimonials();observeReveal();const s=document.getElementById('stats');s&&new IntersectionObserver(([e])=>{e.isIntersecting&&(animateCounters(),this&&this.unobserve&&this.unobserve(e.target))},{threshold:0.5}).observe(s);document.querySelectorAll('.timeline-step').forEach(el=>{new IntersectionObserver(([e])=>{e.isIntersecting&&(e.target.classList.add('visible'),this&&this.unobserve&&this.unobserve(e.target))},{threshold:0.2}).observe(el)})});
+document.addEventListener('DOMContentLoaded',async()=>{createParticles();await loadProperties();renderProperties('all');renderBlog();renderTestimonials();observeReveal();const s=document.getElementById('stats');s&&new IntersectionObserver(([e])=>{e.isIntersecting&&(animateCounters(),this&&this.unobserve&&this.unobserve(e.target))},{threshold:0.5}).observe(s);document.querySelectorAll('.timeline-step').forEach(el=>{new IntersectionObserver(([e])=>{e.isIntersecting&&(e.target.classList.add('visible'),this&&this.unobserve&&this.unobserve(e.target))},{threshold:0.2}).observe(el)})});
 </script>
 </body>
 </html>
