@@ -389,7 +389,7 @@ ul {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  transform: translateY(-40px);
+  transform: translateY(-70px);
 }
 
 .hero-photo {
