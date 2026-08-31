@@ -388,6 +388,8 @@ ul {
 .hero-right {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  transform: translateY(-40px);
 }
 
 .hero-photo {
