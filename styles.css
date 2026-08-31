@@ -395,12 +395,6 @@ ul {
   max-width: 460px;
   height: auto;
   filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.45));
-  animation: float-photo 6s ease-in-out infinite;
-}
-
-@keyframes float-photo {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-14px); }
 }
 
 .hero-badge {
