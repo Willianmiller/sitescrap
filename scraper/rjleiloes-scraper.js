@@ -2,20 +2,25 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
+const BASE = 'https://www.rjleiloes.com.br';
+
 function httpGet(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' }
     }, res => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return resolve(httpGet(res.headers.location));
+        const next = res.headers.location.startsWith('http')
+          ? res.headers.location
+          : new URL(res.headers.location, url).href;
+        return resolve(httpGet(next));
       }
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => resolve({ status: res.statusCode, body: data }));
     });
     req.on('error', reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
@@ -33,72 +38,76 @@ function isVehicle(title, desc) {
   return VEHICLE_KEYWORDS.some(kw => text.includes(kw));
 }
 
-function parseDate(str) {
-  if (!str) return null;
-  const m = str.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  return null;
+function clean(s) {
+  return (s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function extractCityState(title, desc) {
-  const text = title + ' ' + (desc || '');
-  const m1 = text.match(/[-–]\s*([A-ZÀ-Ú][A-ZÀ-Ú\s]+?)\s*[-–]\s*([A-Z]{2})\b/);
-  if (m1) return { cidade: m1[1].trim(), estado: m1[2].trim() };
-  const m2 = text.match(/\bEM\s+([A-Z][A-Z\s]+?)\/([A-Z]{2})\b/);
-  if (m2) return { cidade: m2[1].trim(), estado: m2[2].trim() };
-  const m3 = text.match(/\b([A-ZÀ-Ú][a-záàãâéêíóôõúçA-ZÀ-Ú\s]+?)\/([A-Z]{2})\b/);
-  if (m3 && m3[1].trim().length < 30 && m3[1].trim().length > 2) {
-    const city = m3[1].trim().replace(/\s+/g, ' ');
-    if (!/LEILÃO|EDITAL|COMARCA|VARA/i.test(city)) return { cidade: city, estado: m3[2].trim() };
-  }
-  return { cidade: '', estado: '' };
+// Converte "R$334.286,00" -> { texto: "R$ 334.286,00", valor: 334286 }
+function parseMoney(str) {
+  if (!str) return { texto: '', valor: null };
+  const m = String(str).replace(/\s+/g, '').match(/R\$\s*([\d.,]+)/i);
+  if (!m) return { texto: clean(str), valor: null };
+  const raw = m[1];
+  const num = parseFloat(raw.replace(/\./g, '').replace(',', '.'));
+  return { texto: 'R$ ' + raw, valor: isNaN(num) ? null : num };
+}
+
+function fieldValue(block, label) {
+  const re = new RegExp('<b>' + label + ':</b>\\s*', 'i');
+  const idx = block.search(re);
+  if (idx === -1) return '';
+  const after = block.slice(idx + block.match(re)[0].length);
+  const endMatch = after.match(/<br\s*\/?>|<b>/i);
+  const chunk = endMatch ? after.slice(0, endMatch.index) : after;
+  return clean(chunk);
 }
 
 function extractListings(html) {
   const listings = [];
-  const parts = html.split('box-leilao');
+  const cards = html.split('card shadow-sm').slice(1);
 
-  for (let i = 1; i < parts.length; i++) {
-    const block = parts[i];
-
-    const hrefMatch = block.match(/href="(https:\/\/www\.rjleiloes\.com\.br\/leilao\/(\d+)\/lotes)"/);
-    const url = hrefMatch ? hrefMatch[1] : '';
+  for (const card of cards) {
+    const hrefMatch = card.match(/href="([^"]*\/item\/(\d+)\/detalhes[^"]*)"/);
+    const url = hrefMatch ? (hrefMatch[1].startsWith('http') ? hrefMatch[1] : BASE + hrefMatch[1]) : '';
     const id = hrefMatch ? hrefMatch[2] : '';
     if (!id) continue;
 
-    const imgMatch = block.match(/<img[^>]+src="([^"]+)"[^>]*>/);
+    const imgMatch = card.match(/background:\s*url\('([^']+)'\)/);
     const img = imgMatch ? imgMatch[1] : '';
 
-    const titleMatch = block.match(/<h6 class="card-title[^"]*">([\s\S]*?)<\/h6>/);
-    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+    const titleMatch = card.match(/<h5>([\s\S]*?)<\/h5>/);
+    const title = titleMatch ? clean(titleMatch[1]) : '';
 
-    const dateMatch = block.match(/<strong>Data:<\/strong>\s*([\s\S]*?)<\/p>/);
-    const dateStr = dateMatch ? dateMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+    // Lance Inicial (bloco central)
+    const lanceMatch = card.match(/<h5>Lance Inicial<\/h5>\s*<h4 class="mb-0">([^<]+)<\/h4>/);
+    const lanceParcial = card.match(/Lance Inicial 2° Leilão:<\/b>\s*([^<]+)/);
+    const lanceMin = parseMoney(lanceMatch ? lanceMatch[1] : (lanceParcial ? lanceParcial[1] : ''));
+    const lanceSegundo = parseMoney(lanceParcial ? lanceParcial[1] : '');
 
-    const lotTimeMatch = block.match(/<strong>Primeiro lote a partir das:<\/strong>\s*([\s\S]*?)<\/p>/);
-    const lotTime = lotTimeMatch ? lotTimeMatch[1].replace(/<[^>]+>/g, '').trim() : '';
-
-    const proposalMatch = block.match(/Envie sua proposta até:\s*([\s\S]*?)<\/p>/);
-    const proposalDate = proposalMatch ? proposalMatch[1].replace(/<[^>]+>/g, '').trim() : '';
-
-    let descText = '';
-    const descMatch = block.match(/<div class="card-text mb-auto">([\s\S]*?)<\/div>\s*<\/div>/);
-    if (descMatch) {
-      descText = descMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    }
-
-    const categoryMatch = block.match(/<div class="card-text">([A-Z\s]+)<\/div>/);
-    const category = categoryMatch ? categoryMatch[1].trim() : '';
-
-    const statusMatch = block.match(/label_leilao'>\s*([^<]+)/);
+    const statusMatch = card.match(/label_lote[^>]*>([^<]+)</);
     const status = statusMatch ? statusMatch[1].trim() : '';
 
-    const modalityMatch = block.match(/<h6 class="mb-1">([^<]+)<\/h6>/);
-    const modality = modalityMatch ? modalityMatch[1].trim() : '';
+    const cidadeRaw = fieldValue(card, 'Cidade');
+    const endereco = fieldValue(card, 'Endereço');
+    const processo = fieldValue(card, 'Processo');
+    const vara = fieldValue(card, 'Vara');
+
+    let state = '';
+    let city = '';
+    const cm = cidadeRaw.match(/^([A-Za-zÀ-ú]+(?:\s+[A-Za-zÀ-ú]+)*)\s*\/\s*([A-Z]{2})$/);
+    if (cm) { city = cm[1].trim(); state = cm[2].toUpperCase(); }
+
+    const descHTML = card.match(/<b>Descrição:?\s*<\/b>([\s\S]*?)<\/div>/i);
+    const description = descHTML ? clean(descHTML[1]) : '';
 
     listings.push({
-      id, url, img, title, dateStr, lotTime, proposalDate, descText,
-      category, status, modality
+      id, url, img, title, status,
+      cidade: city, estado: state, cidade_raw: cidadeRaw, endereco,
+      lance_minimo: lanceMin.texto,
+      lance_minimo_valor: lanceMin.valor,
+      lance_segundo_leilao: lanceSegundo.texto,
+      descricao: description,
+      processo, vara
     });
   }
 
@@ -107,45 +116,54 @@ function extractListings(html) {
 
 async function scrape() {
   console.log('Scraping rjleiloes.com.br (imóveis)...');
-  const { body: html } = await httpGet('https://www.rjleiloes.com.br/leiloes?categoria=Im%C3%B3veis');
-  console.log(`HTML: ${html.length} bytes`);
+  const properties = [];
+  const seen = new Set();
 
-  const all = extractListings(html);
-  console.log(`Total cards found: ${all.length}`);
-
-  const properties = all.filter(item => !isVehicle(item.title, item.descText));
-  console.log(`After vehicle filter: ${properties.length}`);
+  // Pagina 1 a 5 de imóveis
+  for (let page = 1; page <= 6; page++) {
+    const u = `${BASE}/lotes/search?tipo=imovel&categoria_id=1&page=${page}`;
+    const { status, body } = await httpGet(u);
+    console.log(`page ${page}: status ${status}, ${body.length} bytes`);
+    const found = extractListings(body);
+    if (found.length === 0) break;
+    let added = 0;
+    for (const it of found) {
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      if (isVehicle(it.title, it.descricao)) continue;
+      properties.push(it);
+      added++;
+    }
+    console.log(`  +${added} novos (total ${properties.length})`);
+    if (added === 0 || found.length < 15) break;
+    await new Promise(r => setTimeout(r, 800));
+  }
 
   const mapped = properties.map(item => {
-    const saleType = /judicial/i.test(item.category) ? 'judicial'
-      : /extrajudicial/i.test(item.category) ? 'extrajudicial'
-      : /proposta/i.test(item.status) ? 'proposta'
-      : /público|administrativo/i.test(item.category) ? 'administrativo'
-      : 'leilao';
-
-    const active = /encerrad/i.test(item.status) ? 'inactive' : 'active';
-    const { cidade, estado } = extractCityState(item.title, item.descText);
-
-    const auctionDate = item.dateStr ? parseDate(item.dateStr) : null;
-    const proposalDeadline = item.proposalDate ? parseDate(item.proposalDate) : null;
-
+    const tipo = /proposta/i.test(item.status) ? 'proposta'
+      : /extrajudicial/i.test(item.status + ' ' + item.title) ? 'extrajudicial'
+      : 'judicial';
     return {
       source: 'rjleiloes',
       source_id: `rjleiloes-${item.id}`,
       listing_id: item.id,
       title: item.title,
-      description: item.descText.substring(0, 500),
-      cidade: cidade,
-      estado: estado,
+      description: item.descricao.substring(0, 500),
+      cidade: item.cidade,
+      estado: item.estado,
       url: item.url,
       img_url: item.img,
-      leilao_tipo: saleType,
-      leilao_data: auctionDate,
-      proposta_ate: proposalDeadline,
-      horario_lote: item.lotTime,
-      modalidade: item.modality,
+      lance_minimo: item.lance_minimo,
+      lance_minimo_valor: item.lance_minimo_valor,
+      lance_segundo_leilao: item.lance_segundo_leilao,
+      endereco: item.endereco,
+      leilao_tipo: tipo,
+      leilao_data: null,
+      proposta_ate: null,
+      horario_lote: '',
+      modalidade: 'Online',
       status_label: item.status,
-      status: active,
+      status: 'active',
       updated_at: new Date().toISOString()
     };
   });

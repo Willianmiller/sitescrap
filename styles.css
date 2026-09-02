@@ -626,6 +626,19 @@ ul {
   gap: 6px;
 }
 
+.auction-card-price {
+  display: inline-block;
+  align-self: flex-start;
+  background: var(--accent);
+  color: #0B0B0B;
+  border-radius: 100px;
+  padding: 5px 14px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 .auction-card-title {
   font-family: var(--font-display);
   font-weight: 700;

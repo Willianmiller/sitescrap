@@ -74,7 +74,7 @@
     return 'https://api.whatsapp.com/send?phone='+WA+'&text='+encodeURIComponent(msg);
   }
   var grid=document.getElementById('auctionGrid');
-  fetch('/api/properties?limit=50').then(function(r){return r.json()}).then(function(json){
+  fetch('/api/properties?limit=200').then(function(r){return r.json()}).then(function(json){
     var items=json.properties||[];
     if(!items.length){grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Nenhum imóvel encontrado no momento.</p>';return}
     grid.innerHTML=items.map(function(p){
@@ -84,12 +84,14 @@
       var date=p.leilao_data||p.proposta_ate;
       var dateFmt=date?new Date(date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
       var href=waMsg(p);
+      var price=p.lance_minimo?p.lance_minimo:'';
       return '<article class="auction-card reveal" onclick="window.open(\''+href+'\',\'_blank\')">'
         +'<div class="auction-card-bg" style="background-image:linear-gradient(135deg,#1b2631 0%,#0d1821 50%,#162030 100%)"></div>'
         +'<div class="auction-card-gradient"></div>'
         +(img?'<img src="'+img+'" alt="'+city+'" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4">':'')
         +'<div class="auction-card-content">'
         +'<div class="auction-card-bottom">'
+        +(price?'<span class="auction-card-price">Lance mínimo: '+price+'</span>':'')
         +'<h3 class="auction-card-title">'+(p.title||city)+'</h3>'
         +'<div class="auction-card-meta"><span class="auction-card-leilao">'+badge+'</span>'
         +(dateFmt?'<span class="auction-card-date">'+dateFmt+'</span>':'')
