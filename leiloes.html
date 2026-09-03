@@ -74,7 +74,7 @@
     return 'https://api.whatsapp.com/send?phone='+WA+'&text='+encodeURIComponent(msg);
   }
   var grid=document.getElementById('auctionGrid');
-  fetch('/api/properties?limit=200').then(function(r){return r.json()}).then(function(json){
+  fetch('/api/properties?limit=1000').then(function(r){return r.json()}).then(function(json){
     var items=json.properties||[];
     if(!items.length){grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Nenhum imóvel encontrado no momento.</p>';return}
     grid.innerHTML=items.map(function(p){
