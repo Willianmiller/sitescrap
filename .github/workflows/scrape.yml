@@ -1,4 +1,4 @@
-name: Scrape RJ Leilões
+name: Scrape Spy Leilões (judicial RJ)
 
 on:
   schedule:
@@ -19,13 +19,13 @@ jobs:
 
       - run: npm ci
 
-      - name: Scrape RJ Leilões
-        run: node scraper/rjleiloes-scraper.js
+      - name: Scrape Spy Leilões — judicial RJ
+        run: node scraper/spy-scraper.js
 
       - name: Commit updated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add api/rjleiloes-data.json
-          git diff --staged --quiet || git commit -m "Update rjleiloes data $(date +\%Y-\%m-\%d)"
+          git diff --staged --quiet || git commit -m "Update spy-leiloes data $(date +\%Y-\%m-\%d)"
           git push
