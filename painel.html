@@ -66,6 +66,17 @@ tr.hidden-row{opacity:.4}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:.85rem;font-weight:600;z-index:99999;transform:translateY(80px);opacity:0;transition:all .3s ease}
 .toast.show{transform:translateY(0);opacity:1}
+/* Login */
+#loginGate{position:fixed;inset:0;background:var(--bg);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px 32px;width:100%;max-width:360px;text-align:center}
+.login-box img{height:64px;width:auto;margin-bottom:18px}
+.login-box h2{font-size:1.2rem;font-weight:700;margin-bottom:6px}
+.login-box p{font-size:.8rem;color:var(--muted);margin-bottom:20px}
+.login-box input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-family:inherit;font-size:.9rem;text-align:center;outline:none;margin-bottom:14px}
+.login-box input:focus{border-color:var(--accent)}
+.login-box button{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:12px;font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer;transition:background .2s}
+.login-box button:hover{background:var(--accentHover)}
+.login-error{display:none;color:var(--danger);font-size:.8rem;margin-top:12px}
 .pagination{display:flex;gap:8px;justify-content:center;margin-top:20px;flex-wrap:wrap}
 .pagination button{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);cursor:pointer;font-size:.8rem;transition:all .15s}
 .pagination button:hover,.pagination button.active{border-color:var(--accent);color:var(--accent)}
@@ -74,6 +85,18 @@ tr.hidden-row{opacity:.4}
 </style>
 </head>
 <body>
+
+<!-- LOGIN GATE -->
+<div id="loginGate">
+  <div class="login-box">
+    <img src="assets/logo.png" alt="Cleber Lima">
+    <h2>Acesso Restrito</h2>
+    <p>Digite a senha para acessar o painel</p>
+    <input type="password" id="loginPass" placeholder="Senha" autocomplete="off">
+    <button onclick="tryLogin()" id="loginBtn">Entrar</button>
+    <p class="login-error" id="loginError">Senha incorreta. Tente novamente.</p>
+  </div>
+</div>
 
 <!-- NAVBAR -->
 <header class="navbar scrolled">
@@ -86,7 +109,6 @@ tr.hidden-row{opacity:.4}
       <a href="leiloes.html">Leilões</a>
       <a href="sobre.html">Sobre</a>
       <a href="contato.html">Contato</a>
-      <a href="painel.html" class="active">Painel</a>
     </nav>
     <div class="navbar-right">
       <a href="https://api.whatsapp.com/send?phone=5521999892929&text=Ol%C3%A1%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20leil%C3%B5es%20de%20im%C3%B3veis." target="_blank" rel="noopener" class="navbar-cta">Falar com Atendente</a>
@@ -100,7 +122,6 @@ tr.hidden-row{opacity:.4}
   <a href="leiloes.html">Leilões</a>
   <a href="sobre.html">Sobre</a>
   <a href="contato.html">Contato</a>
-  <a href="painel.html">Painel</a>
   <a href="https://api.whatsapp.com/send?phone=5521999892929&text=Ol%C3%A1%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20leil%C3%B5es%20de%20im%C3%B3veis." target="_blank" rel="noopener" class="navbar-cta">Falar com Atendente</a>
 </nav>
 
@@ -201,6 +222,33 @@ var ALL=[];
 var EDITED=false;
 var PAGE_SIZE=30;
 var CURRENT_PAGE=1;
+var PASS_HASH='3c01be085008bd4469c36cf564e83124619fef7054914ce5362d21205fe4b15b';
+
+function sha256(str){
+  return crypto.subtle.digest('SHA-256',new TextEncoder().encode(str)).then(function(h){
+    return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+  });
+}
+
+document.getElementById('loginPass').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){e.preventDefault();tryLogin();}
+});
+
+function tryLogin(){
+  var v=document.getElementById('loginPass').value;
+  if(!v)return;
+  sha256(v).then(function(h){
+    if(h===PASS_HASH){
+      sessionStorage.setItem('painel_auth','1');
+      document.getElementById('loginGate').style.display='none';
+      load();
+    } else {
+      document.getElementById('loginError').style.display='block';
+      document.getElementById('loginPass').value='';
+      document.getElementById('loginPass').focus();
+    }
+  });
+}
 
 function load(){
   var local=localStorage.getItem('painel_data');
@@ -385,7 +433,10 @@ document.getElementById('filterStatus').addEventListener('change',function(){CUR
 document.getElementById('filterFoto').addEventListener('change',function(){CURRENT_PAGE=1;render()});
 document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)closeModal()});
 
-load();
+if(sessionStorage.getItem('painel_auth')==='1'){
+  document.getElementById('loginGate').style.display='none';
+  load();
+}
 </script>
 <script src="script.js"></script>
 </body>
