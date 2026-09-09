@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imóvel em Leilão — Cleber Lima Advocacia</title>
+<meta name="description" content="Detalhes do imóvel em leilão judicial: descrição, metragem, fotos e condições. Assessoria jurídica especializada para arrematação segura.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .detail-page{padding:44px 0 20px}
+  .detail-back{display:inline-flex;align-items:center;gap:8px;color:var(--muted,#9a9a9a);font-size:.85rem;text-decoration:none;margin-bottom:22px;transition:color .2s}
+  .detail-back:hover{color:var(--accent,#B38547)}
+  .detail-title{font-family:'Manrope',sans-serif;font-size:clamp(1.3rem,2.6vw,1.9rem);font-weight:800;line-height:1.25;margin:0 0 6px}
+  .detail-sub{color:var(--muted,#9a9a9a);font-size:.95rem;margin:0 0 26px}
+  .detail-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:32px;align-items:start}
+  @media(max-width:900px){.detail-grid{grid-template-columns:1fr}}
+  .detail-gallery{position:sticky;top:24px}
+  @media(max-width:900px){.detail-gallery{position:static}}
+  .gal-main{position:relative;border-radius:14px;overflow:hidden;background:#111;border:1px solid rgba(255,255,255,.08)}
+  .gal-main img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+  .gal-main .gal-ph{display:none}
+  .gal-main .gal-ph.active{display:block}
+  .gal-thumbs{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .gal-thumb{width:74px;height:74px;border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid transparent;opacity:.65;transition:.2s;padding:0;background:#111}
+  .gal-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .gal-thumb.active{border-color:var(--accent,#B38547);opacity:1}
+  .gal-count{position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.72);color:#fff;font-size:.74rem;font-weight:600;padding:5px 10px;border-radius:999px;z-index:2}
+  .detail-side{display:flex;flex-direction:column;gap:16px}
+  .d-price-card{background:linear-gradient(135deg,#1b2631 0%,#0d1821 60%,#162030 100%);border:1px solid rgba(179,133,71,.25);border-radius:14px;padding:20px 22px}
+  .d-price-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted,#9a9a9a);margin-bottom:6px}
+  .d-price{font-family:'Manrope',sans-serif;font-size:clamp(1.4rem,3vw,1.9rem);font-weight:800;color:var(--accent,#B38547)}
+  .d-price-sec{font-size:.9rem;color:var(--muted,#9a9a9a);margin-top:6px}
+  .d-price-badges{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .d-chip{font-size:.72rem;font-weight:700;padding:5px 11px;border-radius:999px;background:rgba(179,133,71,.14);color:var(--accent,#B38547);border:1px solid rgba(179,133,71,.3)}
+  .d-card{background:#101010;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:20px 22px}
+  .d-card h4{margin:0 0 14px;font-family:'Manrope',sans-serif;font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted,#9a9a9a);font-weight:700}
+  .d-specs{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
+  @media(max-width:560px){.d-specs{grid-template-columns:1fr}}
+  .d-spec{display:flex;align-items:center;gap:10px}
+  .d-spec svg{flex:none;color:var(--accent,#B38547);opacity:.9}
+  .d-spec b{display:block;font-size:.86rem;font-weight:600;color:#e8e6e3;line-height:1.25}
+  .d-spec span{font-size:.76rem;color:var(--muted,#9a9a9a)}
+  .d-desc p{font-size:.95rem;line-height:1.75;color:#cfccc8;margin:0 0 10px;white-space:pre-line}
+  .d-actions{display:flex;flex-direction:column;gap:10px}
+  .d-wa{display:flex;align-items:center;justify-content:center;gap:10px;background:#25D366;color:#062b17;font-weight:700;font-family:'Manrope',sans-serif;font-size:1rem;padding:15px 20px;border-radius:12px;text-decoration:none;transition:.2s}
+  .d-wa:hover{background:#2ee877}
+  .d-note{font-size:.76rem;color:var(--muted,#9a9a9a);line-height:1.5}
+  .detail-loading,.detail-error{padding:80px 20px;text-align:center;color:var(--muted,#9a9a9a);font-size:1rem}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<header class="navbar" id="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="navbar-logo">
+      <img src="assets/logo.png" alt="Cleber Lima" style="height:150px;width:auto">
+    </a>
+    <nav class="navbar-links">
+      <a href="index.html">Início</a>
+      <a href="leiloes.html">Leilões</a>
+      <a href="sobre.html">Sobre</a>
+      <a href="contato.html">Contato</a>
+    </nav>
+    <div class="navbar-right">
+      <a href="https://api.whatsapp.com/send?phone=5521999892929&text=Ol%C3%A1%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20leil%C3%B5es%20de%20im%C3%B3veis." target="_blank" rel="noopener" class="navbar-cta">Falar com Atendente</a>
+      <button class="navbar-toggle" id="navToggle" aria-label="Abrir menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+<div class="mobile-scrim" id="mobileScrim"></div>
+<nav class="mobile-menu" id="mobileMenu">
+  <a href="index.html">Início</a>
+  <a href="leiloes.html">Leilões</a>
+  <a href="sobre.html">Sobre</a>
+  <a href="contato.html">Contato</a>
+  <a href="https://api.whatsapp.com/send?phone=5521999892929&text=Ol%C3%A1%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20leil%C3%B5es%20de%20im%C3%B3veis." target="_blank" rel="noopener" class="navbar-cta">Falar com Atendente</a>
+</nav>
+
+<section class="detail-page">
+  <div class="section-inner">
+    <a href="leiloes.html" class="detail-back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Voltar aos leilões</a>
+    <div id="detailRoot">
+      <div class="detail-loading">Carregando detalhes do imóvel...</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="navbar-logo"><img src="assets/logo.png" alt="Cleber Lima" style="height:100px;width:auto"></a>
+        <p>Advocacia especializada em leilões judiciais e extrajudiciais de imóveis. Segurança, agilidade e transparência para investir com confiança.</p>
+      </div>
+      <div><h5>Navegação</h5><div class="footer-links"><a href="index.html">Início</a><a href="leiloes.html">Leilões</a><a href="sobre.html">Sobre</a><a href="contato.html">Contato</a></div></div>
+      <div><h5>Serviços</h5><div class="footer-links"><a href="index.html#servicos">Assessoria para Arrematantes</a><a href="index.html#servicos">Assessoria para Leiloeiros</a><a href="index.html#servicos">Compra, Reforma e Revenda</a></div></div>
+      <div><h5>Contato</h5><div class="footer-contact">
+        <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.4-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>(21) 99989-2929</div>
+        <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>imoveisemleilaorj@gmail.com</div>
+        <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>Rio de Janeiro — RJ</div>
+      </div></div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 Cleber Lima Advocacia — Todos os direitos reservados.</p>
+      <div class="legal"><a href="contato.html">Política de Privacidade</a><a href="contato.html">LGPD</a></div>
+    </div>
+  </div>
+</footer>
+
+<!-- WHATSAPP FAB -->
+<a href="https://api.whatsapp.com/send?phone=5521999892929&text=Ol%C3%A1%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20leil%C3%B5es%20de%20im%C3%B3veis." target="_blank" rel="noopener" class="wa-fab" aria-label="WhatsApp">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.16L2 22l5-1.36a9.9 9.9 0 1 0 5.04-18.6zm5.77 14.1c-.24.68-1.4 1.3-1.93 1.34-.52.05-1.02.24-3.44-.72-2.9-1.15-4.74-4.14-4.88-4.33-.14-.19-1.17-1.55-1.17-2.96 0-1.4.74-2.09 1-2.38.26-.29.57-.36.76-.36h.55c.18 0 .41-.06.65.5.24.57.82 1.97.9 2.11.07.14.12.31.02.5-.1.2-.15.31-.3.48-.15.17-.31.39-.44.52-.15.14-.3.3-.13.58.17.28.75 1.24 1.61 2 .1.1.19.09.27-.05.08-.15.35-.49.48-.66.13-.17.27-.14.45-.08.19.05 1.19.56 1.39.66.2.1.33.15.38.23.05.09.05.5-.12 1.02z"/></svg>
+</a>
+
+<script src="script.js"></script>
+<script>
+(function(){
+  var WA='5521999892929';
+  function waMsg(p){
+    var t=p.title||p.description||'';
+    var msg='Olá! Tenho interesse no imóvel: '+t+'\n'+location.href;
+    return 'https://api.whatsapp.com/send?phone='+WA+'&text='+encodeURIComponent(msg);
+  }
+  function money(v){
+    if(v===null||v===undefined||v==='')return '';
+    if(typeof v==='number')return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+    var n=parseFloat(String(v).replace(/[^\d.-]/g,''));
+    if(isNaN(n))return String(v);
+    return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+  }
+  function spec(icon,label,val){
+    if(!val)return '';
+    return '<div class="d-spec">'+icon+'<div><b>'+val+'</b><span>'+label+'</span></div></div>';
+  }
+  var ICON={
+    pin:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    ruler:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 8.7 15.3 2.7 2.7 15.3l6 6z"/><path d="m7.5 10.5 2 2M10.5 7.5l2 2M13.5 4.5l2 2"/></svg>',
+    bed:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9V5M2 9v6M2 9h14a4 4 0 0 1 4 4v2M2 15h20M2 15v4M2 9V5"/></svg>',
+    bath:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-0.5C4.7 3 4 3.7 4 4.5V9"/><path d="M7 9h12v4a6 6 0 0 1-6 6H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z"/></svg>',
+    car:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11 6.5 6.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11M5 11h14M5 11a2 2 0 0 0-2 2v4h3M19 11a2 2 0 0 1 2 2v4h-3M6 17H4v2h1.6M18 17h2v2h-1.6M8.5 17h7"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/></svg>',
+    gavel:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-8 8M14 13l5-5M8 19l-3 3 3 3M14 5 9 10M14 5l5 5"/></svg>',
+    tag:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><path d="M7 7h.01"/></svg>',
+    badge:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4.5v5C20 17.5 16.6 21 12 22s-8-4.5-8-10.5v-5L12 2z"/></svg>',
+    calendar:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    home:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-6h6v6"/></svg>'
+  };
+  function query(){return new URLSearchParams(location.search).get('id');}
+  fetch('/api/properties?limit=1000').then(function(r){return r.json()}).then(function(json){
+    var items=json.properties||[];
+    var id=Number(query());
+    var p=items.filter(function(x){return String(x.listing_id)===String(id)})[0];
+    var root=document.getElementById('detailRoot');
+    if(!p){root.innerHTML='<div class="detail-error">Imóvel não encontrado. <a href="leiloes.html" style="color:var(--accent,#B38547)">Ver todos os leilões</a></div>';return}
+    document.title='Imóvel em Leilão — '+(p.title||'');
+    var photos=p.photos&&p.photos.length?p.photos.concat():[];
+    if(p.img_url&&photos.indexOf(p.img_url)===-1)photos.unshift(p.img_url);
+    if(!photos.length)photos.push('');
+    var mainHtml=photos.length?photos.map(function(u,i){
+      return '<img class="gal-ph'+(i===0?' active':'')+'" src="'+u+'" alt="Foto do imóvel" loading="lazy" onerror="this.style.display=\'none\'">';
+    }).join(''):'<div class="gal-ph active" style="display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;color:var(--muted);font-size:.9rem">Sem foto disponível</div>';
+    var thumbs=photos.length>1?'<div class="gal-thumbs">'+photos.map(function(u,i){
+      return '<button class="gal-thumb'+(i===0?' active':'')+'" data-i="'+i+'" onclick="galleryGo('+i+')"><img src="'+u+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"></button>';
+    }).join('')+'</div>':'';
+    var city=p.cidade+(p.estado?' - '+p.estado:'')||'';
+    var sub=[p.bairro,city].filter(Boolean).join(' · ');
+    var chips=[];
+    if(p.aceita_financiamento)chips.push('Aceita financiamento');
+    if(p.aceita_parcelamento)chips.push('Aceita parcelamento');
+    if(p.aceita_fgts)chips.push('Aceita FGTS');
+    var specs=[];
+    specs.push(spec(ICON.home,'Tipo',p.tipo_imovel));
+    specs.push(spec(ICON.ruler,'Metragem',p.metragem?p.metragem.toLocaleString('pt-BR')+' m²':''));
+    specs.push(spec(ICON.bed,'Quartos',p.quartos?String(p.quartos):''));
+    specs.push(spec(ICON.bath,'Banheiros',p.banheiros?String(p.banheiros):''));
+    specs.push(spec(ICON.car,'Vagas',p.vagas?String(p.vagas):''));
+    specs.push(spec(ICON.pin,'Bairro',p.bairro));
+    specs.push(spec(ICON.gavel,'Leiloeiro',p.leiloeiro));
+    specs.push(spec(ICON.badge,'Matrícula',p.matricula));
+    specs.push(spec(ICON.tag,'Avaliação',money(p.avaliacao)));
+    var datas=[];
+    if(p.leilao_data)datas.push('1º leilão: '+p.leilao_data+(p.lance_minimo_valor?' — ':'')+(p.lance_minimo_valor?money(p.lance_minimo_valor):''));
+    if(p.leilao_data_2)datas.push('2º leilão: '+p.leilao_data_2+(p.lance_segundo_leilao?' — '+p.lance_segundo_leilao:''));
+    if(p.leilao_data_3)datas.push('3º leilão: '+p.leilao_data_3);
+    var dateCard=datas.length?'<div class="d-card"><h4>Datas dos Leilões</h4><div class="d-specs">'+datas.slice(0,3).map(function(d){var part=d.split(' — ');return '<div class="d-spec">'+ICON.calendar+'<div><b>'+part[0]+'</b><span>'+((part[1])||'')+'</span></div></div>'}).join('')+'</div></div>':'';
+    var price=p.lance_minimo?p.lance_minimo:p.lance_minimo_valor?money(p.lance_minimo_valor):'';
+
+    var html='<h1 class="detail-title">'+p.title+'</h1>'
+      +'<p class="detail-sub">'+sub+'</p>'
+      +'<div class="detail-grid">'
+      +'<div class="detail-gallery">'
+      +'<div class="gal-main">'+mainHtml+(photos.length>1?'<span class="gal-count">1/'+photos.length+'</span>':'')+'</div>'
+      +thumbs
+      +'</div>'
+      +'<div class="detail-side">'
+      +'<div class="d-price-card">'
+      +'<div class="d-price-label">Lance inicial</div>'
+      +(price?'<div class="d-price">'+price+'</div>':'')
+      +(chips.length?'<div class="d-price-badges">'+chips.map(function(c){return '<span class="d-chip">'+c+'</span>'}).join('')+'</div>':'')
+      +'</div>'
+      +'<div class="d-card"><h4>Características</h4><div class="d-specs">'+specs.join('')+'</div></div>'
+      +dateCard
+      +(p.description?'<div class="d-card"><h4>Descrição</h4><div class="d-desc"><p>'+p.description+'</p></div></div>':'')
+      +'<div class="d-actions">'
+      +'<a class="d-wa" href="'+waMsg(p)+'" target="_blank" rel="noopener">'
+      +'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.16L2 22l5-1.36a9.9 9.9 0 1 0 5.04-18.6zm5.77 14.1c-.24.68-1.4 1.3-1.93 1.34-.52.05-1.02.24-3.44-.72-2.9-1.15-4.74-4.14-4.88-4.33-.14-.19-1.17-1.55-1.17-2.96 0-1.4.74-2.09 1-2.38.26-.29.57-.36.76-.36h.55c.18 0 .41-.06.65.5.24.57.82 1.97.9 2.11.07.14.12.31.02.5-.1.2-.15.31-.3.48-.15.17-.31.39-.44.52-.15.14-.3.3-.13.58.17.28.75 1.24 1.61 2 .1.1.19.09.27-.05.08-.15.35-.49.48-.66.13-.17.27-.14.45-.08.19.05 1.19.56 1.39.66.2.1.33.15.38.23.05.09.05.5-.12 1.02z"/></svg>'
+      +'Tenho interesse — falar no WhatsApp</a>'
+      +'<a href="contato.html" class="btn btn-outline" style="width:100%;justify-content:center">Agendar Consultoria</a>'
+      +'<p class="d-note">Este anúncio é uma vitrine de imóveis em leilão. A arrematação é feita no site do leiloeiro; oferecemos assessoria jurídica completa para análise do edital, matrícula e riscos antes do lance.</p>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+    root.innerHTML=html;
+    window.galleryGo=function(i){
+      var i=Number(i);
+      var mains=root.querySelectorAll('.gal-ph'),th=root.querySelectorAll('.gal-thumb');
+      mains.forEach(function(m,j){m.classList.toggle('active',j===i)});
+      th.forEach(function(t,j){t.classList.toggle('active',j===i)});
+      var c=root.querySelector('.gal-count');if(c)c.textContent=(i+1)+'/'+mains.length;
+    };
+  }).catch(function(){
+    document.getElementById('detailRoot').innerHTML='<div class="detail-error">Erro ao carregar o imóvel. Tente novamente mais tarde.</div>';
+  });
+})();
+</script>
+</body>
+</html>

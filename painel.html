@@ -62,6 +62,9 @@ tr.hidden-row{opacity:.4}
 .modal label{display:block;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
 .modal input,.modal textarea,.modal select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:.85rem;margin-bottom:14px;outline:none}
 .modal textarea{resize:vertical;min-height:80px}
+.modal .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal .form-row.three{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:520px){.modal .form-row,.modal .form-row.three{grid-template-columns:1fr}}
 .modal input:focus,.modal textarea:focus{border-color:var(--accent)}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:.85rem;font-weight:600;z-index:99999;transform:translateY(80px);opacity:0;transition:all .3s ease}
@@ -189,12 +192,31 @@ tr.hidden-row{opacity:.4}
     <textarea id="editDesc"></textarea>
     <label>Valor (R$)</label>
     <input type="text" id="editPrice">
+    <div class="form-row">
+      <div><label>Metragem (m²)</label><input type="number" id="editMetragem" min="0"></div>
+      <div><label>Avaliação (R$)</label><input type="number" id="editAvaliacao" min="0"></div>
+    </div>
+    <div class="form-row three">
+      <div><label>Quartos</label><input type="number" id="editQuartos" min="0"></div>
+      <div><label>Banheiros</label><input type="number" id="editBanheiros" min="0"></div>
+      <div><label>Vagas</label><input type="number" id="editVagas" min="0"></div>
+    </div>
+    <label>Bairro</label>
+    <input type="text" id="editBairro">
+    <label>Tipo do Imóvel</label>
+    <input type="text" id="editTipoImovel" placeholder="Ex.: Apartamento, Casa, Terreno...">
+    <label>Leiloeiro</label>
+    <input type="text" id="editLeiloeiro">
+    <label>Matrícula</label>
+    <input type="text" id="editMatricula">
     <label>Endereço</label>
     <input type="text" id="editEndereco">
     <label>Cidade</label>
     <input type="text" id="editCidade">
     <label>URL da Imagem</label>
     <input type="text" id="editImg">
+    <label>Fotos extras (uma URL por linha)</label>
+    <textarea id="editPhotos"></textarea>
     <label>Link do Anúncio</label>
     <input type="text" id="editUrl">
     <label>Tipo</label>
@@ -355,9 +377,19 @@ function openEdit(idx){
   document.getElementById('editTitle').value=p.title||'';
   document.getElementById('editDesc').value=p.description||'';
   document.getElementById('editPrice').value=p.lance_minimo||'';
+  document.getElementById('editMetragem').value=p.metragem||'';
+  document.getElementById('editAvaliacao').value=p.avaliacao||'';
+  document.getElementById('editQuartos').value=p.quartos||'';
+  document.getElementById('editBanheiros').value=p.banheiros||'';
+  document.getElementById('editVagas').value=p.vagas||'';
+  document.getElementById('editBairro').value=p.bairro||'';
+  document.getElementById('editTipoImovel').value=p.tipo_imovel||'';
+  document.getElementById('editLeiloeiro').value=p.leiloeiro||'';
+  document.getElementById('editMatricula').value=p.matricula||'';
   document.getElementById('editEndereco').value=p.endereco||'';
   document.getElementById('editCidade').value=p.cidade||'';
   document.getElementById('editImg').value=p.img_url||'';
+  document.getElementById('editPhotos').value=(p.photos||[]).join('\n');
   document.getElementById('editUrl').value=p.url||'';
   document.getElementById('editTipo').value=p.leilao_tipo||'judicial';
   document.getElementById('editStatus').value=p._hidden?'hidden':'active';
@@ -366,15 +398,28 @@ function openEdit(idx){
 
 function closeModal(){document.getElementById('editModal').classList.remove('open')}
 
+function numOrNull(v){v=String(v).trim();if(!v)return null;var n=parseFloat(v.replace(',','.'));return isNaN(n)?null:n}
+
 function saveEdit(){
   var idx=parseInt(document.getElementById('editIdx').value);
   var p=ALL[idx];if(!p)return;
   p.title=document.getElementById('editTitle').value;
   p.description=document.getElementById('editDesc').value;
   p.lance_minimo=document.getElementById('editPrice').value;
+  p.metragem=numOrNull(document.getElementById('editMetragem').value);
+  p.avaliacao=numOrNull(document.getElementById('editAvaliacao').value);
+  p.quartos=numOrNull(document.getElementById('editQuartos').value);
+  p.banheiros=numOrNull(document.getElementById('editBanheiros').value);
+  p.vagas=numOrNull(document.getElementById('editVagas').value);
+  p.bairro=document.getElementById('editBairro').value;
+  p.tipo_imovel=document.getElementById('editTipoImovel').value;
+  p.leiloeiro=document.getElementById('editLeiloeiro').value;
+  p.matricula=document.getElementById('editMatricula').value;
   p.endereco=document.getElementById('editEndereco').value;
   p.cidade=document.getElementById('editCidade').value;
   p.img_url=document.getElementById('editImg').value;
+  p.photos=document.getElementById('editPhotos').value.split('\n').map(function(u){return u.trim()}).filter(Boolean);
+  if(p.img_url&&p.photos.indexOf(p.img_url)===-1)p.photos.unshift(p.img_url);
   p.url=document.getElementById('editUrl').value;
   p.leilao_tipo=document.getElementById('editTipo').value;
   p.status=document.getElementById('editStatus').value;

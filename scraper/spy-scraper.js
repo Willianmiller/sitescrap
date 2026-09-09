@@ -4,18 +4,26 @@ const path = require('path');
 
 const LIST_BASE = 'https://spyleiloes.com.br/imoveis-leilao/rj/rio-de-janeiro';
 const MODALIDADE = 'judicial';
+const MAX_IMAGES = 15;
+const CONCURRENCY = Math.min(parseInt(process.env.CONCURRENCY || '6', 10), 12);
 
-function httpGet(url) {
+function httpGet(url, redirects) {
+  redirects = redirects || 0;
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' }
     }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects < 5) {
+        res.resume();
+        const next = new URL(res.headers.location, url).toString();
+        return resolve(httpGet(next, redirects + 1));
+      }
       let data = '';
       res.on('data', c => data += c);
-      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      res.on('end', () => resolve({ status: res.statusCode, body: data, finalUrl: res.url || url }));
     });
     req.on('error', reject);
-    req.setTimeout(25000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
@@ -53,6 +61,8 @@ function extractPhoto(li) {
   return '';
 }
 
+const isPhotoUrl = u => /\.(jpe?g|png|webp)(\?|$)/i.test(u || '') && !/\/icons\//i.test(u || '') && !/semFoto|logo|\.svg|arrow|heart|location|anner/i.test(u || '');
+
 function extractCards(html) {
   const items = [];
   const lis = html.split('<li class="BroadSearch_auctionItem').slice(1);
@@ -62,7 +72,6 @@ function extractCards(html) {
     const id = hrefMatch[2];
     const slug = hrefMatch[1];
 
-    // imagem real do imóvel (qualquer domínio; ignora ícones/logos/semFoto/pdf)
     const img = extractPhoto(li);
 
     const lanceMatch = li.match(/<span class="styles_h4LanceInicial[^"]*">([^<]*)<\/span>/);
@@ -110,7 +119,6 @@ const OTHER_RJ_CITIES = [
   'são pedro da aldeia', 'sao pedro da aldeia', 'araruama', 'itatiaia', 'resende', 'barra mansa'
 ];
 
-// Retorna true se o imóvel está no município do Rio de Janeiro
 function isRioMunicipio(item) {
   const text = ((item.title || '') + ' ' + (item.endereco || '') + ' ' + (item.cidade || '')).toLowerCase();
   if (!text.includes('rio de janeiro') && !/rj/i.test(text)) return false;
@@ -119,6 +127,149 @@ function isRioMunicipio(item) {
   }
   return true;
 }
+
+// ---- Início: parsing da página de detalhe ----
+
+function balancedArray(text, fromIdx) {
+  let depth = 0, inStr = false, end = -1;
+  for (let j = fromIdx; j < text.length; j++) {
+    const c = text[j];
+    if (inStr) { if (c === '\\') { j++; continue; } if (c === '"') inStr = false; continue; }
+    if (c === '"') { inStr = true; continue; }
+    if (c === '[') depth++;
+    else if (c === ']') { depth--; if (depth === 0) { end = j + 1; break; } }
+  }
+  return end === -1 ? null : text.slice(fromIdx, end);
+}
+
+// Extrai o objeto "auction" do payload RSC (contém footage, images, description, etc.)
+function extractAuction(html) {
+  const chunks = [];
+  let pos = 0;
+  while (pos < html.length) {
+    const p = html.indexOf('self.__next_f.push(', pos);
+    if (p === -1) break;
+    const ob = html.indexOf('[', p);
+    const at = balancedArray(html, ob);
+    if (at) {
+      try { JSON.parse(at).forEach(el => { if (typeof el === 'string') chunks.push(el); }); } catch (e) { }
+    }
+    pos = p + 21;
+  }
+  const rsc = chunks.join('');
+  let idx = rsc.indexOf('avaliacaoAuctioneerValue');
+  if (idx === -1) idx = rsc.indexOf('firstAuctionPrice');
+  if (idx === -1) return null;
+  const start = rsc.lastIndexOf('{', idx);
+  let depth = 0, inStr = false, end = -1;
+  for (let j = start; j < rsc.length; j++) {
+    const c = rsc[j];
+    if (inStr) { if (c === '\\') { j++; continue; } if (c === '"') inStr = false; continue; }
+    if (c === '"') { inStr = true; continue; }
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) { end = j + 1; break; } }
+  }
+  if (end === -1) return null;
+  try { return JSON.parse(rsc.slice(start, end)); } catch (e) { return null; }
+}
+
+// Extrai a descrição do bloco schema.org RealEstateListing (sempre presente no HTML renderizado)
+function extractListingDesc(html) {
+  const re = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const obj = JSON.parse(m[1]);
+      if (obj && obj['@type'] === 'RealEstateListing' && obj.description) return obj.description;
+    } catch (e) { }
+  }
+  return '';
+}
+
+function isRscRef(s) {
+  return typeof s === 'string' && s.length > 0 && s.length < 8 && /^\$[\w]+$/.test(s);
+}
+
+function formatDateDMY(s) {
+  if (!s) return '';
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(s);
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function formatMoney(n) {
+  if (n === null || n === undefined || n === 0) return '';
+  return 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function enrichDetail(item) {
+  const url = 'https://spyleiloes.com.br' + item.slug;
+  return httpGet(url).then(r => {
+    if (r.status !== 200) return null;
+    const auction = extractAuction(r.body) || {};
+    const ldDesc = extractListingDesc(r.body);
+
+    const desc = (auction.description && !isRscRef(auction.description) ? auction.description : '') || ldDesc || '';
+
+    const photos = [];
+    if (item.img && isPhotoUrl(item.img)) photos.push(item.img);
+    const gallery = Array.isArray(auction.images) ? auction.images.map(i => i.imageUrl || i.src || '').filter(isPhotoUrl) : [];
+    for (const p of gallery) {
+      if (photos.length >= MAX_IMAGES) break;
+      if (!photos.includes(p)) photos.push(p);
+    }
+
+    const endereco = (auction.address || item.endereco || '').replace(/\s+/g, ' ').trim();
+
+    return {
+      id: item.id,
+      slug: item.slug,
+      title: auction.title || item.title,
+      endereco,
+      desc,
+      photos,
+      footage: auction.footage || null,
+      bedrooms: auction.bedrooms || null,
+      bathrooms: auction.bathrooms || null,
+      parkingSpots: auction.parkingSpots || null,
+      auctioneer: auction.auctioneer || '',
+      numeroMatricula: auction.numeroMatricula || '',
+      avaliacao: auction.avaliacaoAuctioneerValue || null,
+      typeBem: auction.typeBem || '',
+      bairro: auction.bairroAddress || '',
+      lei1o: formatDateDMY(auction.firstAuction),
+      lei2o: formatDateDMY(auction.secondAuction),
+      lei3o: formatDateDMY(auction.thirdAuction),
+      lance2: formatMoney(auction.secondAuctionPrice),
+      aceitaFin: auction.aceitaFinanciamento,
+      aceitaParc: auction.aceitaParcelamento,
+      aceitaFgts: auction.aceitaFgts,
+      dividasCondo: auction.dividasCondominio,
+      dividasIptu: auction.dividasIptu,
+      debitoFid: auction.debitoFiduciario
+    };
+  }).catch(() => null);
+}
+
+async function runDetailPool(items) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      const item = items[i];
+      const d = await enrichDetail(item);
+      results[i] = d;
+      if ((i + 1) % 25 === 0) console.log(`  detalhes: ${i + 1}/${items.length}`);
+    }
+  }
+  const workers = [];
+  for (let w = 0; w < CONCURRENCY; w++) workers.push(worker());
+  await Promise.all(workers);
+  return results;
+}
+
+// ---- Fim: parsing da página de detalhe ----
 
 async function scrape() {
   console.log(`Scraping Spy Leilões — ${MODALIDADE} / RJ`);
@@ -149,37 +300,67 @@ async function scrape() {
     }
     console.log(`  +${added} novos (total ${properties.length})`);
     if (cards.length === 0) break;
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 300));
   }
 
-  const mapped = properties.map(item => ({
-    source: 'spyleiloes',
-    source_id: `spy-${item.id}`,
-    listing_id: item.id,
-    title: item.title,
-    description: '',
-    cidade: extractCity(item.endereco),
-    estado: 'RJ',
-    url: 'https://spyleiloes.com.br' + item.slug,
-    img_url: item.img,
-    lance_minimo: item.lance.texto,
-    lance_minimo_valor: item.lance.valor,
-    lance_segundo_leilao: '',
-    endereco: item.endereco,
-    leilao_tipo: 'judicial',
-    leilao_data: null,
-    proposta_ate: null,
-    horario_lote: '',
-    modalidade: 'Judicial',
-    status_label: 'Leilão Judicial',
-    status: 'active',
-    updated_at: new Date().toISOString()
-  })).filter(p => p.title);
+  console.log(`Buscando detalhes de ${properties.length} imóveis...`);
+  const details = await runDetailPool(properties);
+
+  const mapped = properties.map((item, i) => {
+    const d = details[i] || {};
+    const photos = d.photos || (item.img ? [item.img] : []);
+    return {
+      source: 'spyleiloes',
+      source_id: `spy-${item.id}`,
+      listing_id: item.id,
+      title: d.title || item.title,
+      description: d.desc || '',
+      cidade: extractCity(d.endereco || item.endereco),
+      estado: 'RJ',
+      bairro: d.bairro || '',
+      endereco: d.endereco || item.endereco,
+      url: 'https://spyleiloes.com.br' + item.slug,
+      img_url: item.img,
+      photos: photos,
+      lance_minimo: item.lance.texto,
+      lance_minimo_valor: item.lance.valor,
+      lance_segundo_leilao: d.lance2 || '',
+      leilao_tipo: 'judicial',
+      tipo_imovel: d.typeBem || '',
+      metragem: d.footage,
+      quartos: d.bedrooms,
+      banheiros: d.bathrooms,
+      vagas: d.parkingSpots,
+      leiloeiro: d.auctioneer || '',
+      matricula: d.numeroMatricula || '',
+      avaliacao: d.avaliacao,
+      aceita_financiamento: d.aceitaFin,
+      aceita_parcelamento: d.aceitaParc,
+      aceita_fgts: d.aceitaFgts,
+      dividas_condominio: d.dividasCondo,
+      dividas_iptu: d.dividasIptu,
+      debito_fiduciario: d.debitoFid,
+      leilao_data: d.lei1o || null,
+      leilao_data_2: d.lei2o || null,
+      leilao_data_3: d.lei3o || null,
+      proposta_ate: null,
+      horario_lote: '',
+      modalidade: 'Judicial',
+      status_label: 'Leilão Judicial',
+      status: 'active',
+      updated_at: new Date().toISOString()
+    };
+  }).filter(p => p.title);
 
   const outPath = path.join(__dirname, '..', 'api', 'rjleiloes-data.json');
   const filtered = mapped.filter(isRioMunicipio);
+  const withDesc = filtered.filter(p => p.description).length;
+  const withPhotos = filtered.filter(p => (p.photos || []).length > 1).length;
+  const withMetragem = filtered.filter(p => p.metragem).length;
+  console.log(`Saved ${filtered.length} properties (de ${mapped.length})`);
+  console.log(`  com descrição: ${withDesc} | com galeria: ${withPhotos} | com metragem: ${withMetragem}`);
   fs.writeFileSync(outPath, JSON.stringify({ properties: filtered, updatedAt: new Date().toISOString() }, null, 2));
-  console.log(`Saved ${filtered.length} properties (de ${mapped.length}) to ${outPath}`);
+  console.log('Arquivo:', outPath);
   return filtered;
 }
 

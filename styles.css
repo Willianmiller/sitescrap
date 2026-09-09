@@ -666,6 +666,25 @@ ul {
   color: var(--muted);
 }
 
+.auction-card-wa {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: #0B0B0B;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.auction-card-wa:hover {
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
 /* ===== SERVIÇOS ===== */
 .services-grid {
   display: grid;
