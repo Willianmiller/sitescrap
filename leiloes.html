@@ -91,7 +91,7 @@
         +(img?'<img src="'+img+'" alt="'+city+'" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4">':'')
         +'<div class="auction-card-content">'
         +'<div class="auction-card-bottom">'
-        +(price?'<span class="auction-card-price">Lance mínimo: '+price+'</span>':'')
+        +(price?'<span class="auction-card-price">'+price+'</span>':'')
         +'<h3 class="auction-card-title">'+(p.title||city)+'</h3>'
         +'<div class="auction-card-meta"><span class="auction-card-leilao">'+badge+'</span>'
         +(dateFmt?'<span class="auction-card-date">'+dateFmt+'</span>':'')
