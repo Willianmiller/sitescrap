@@ -271,6 +271,42 @@ async function runDetailPool(items) {
 
 // ---- Fim: parsing da página de detalhe ----
 
+// Chave de identidade do imóvel: matrícula quando existir; fallback título+endereço+data
+function propertyKey(p) {
+  if (p.matricula) return 'M|' + String(p.matricula).replace(/\s+/g, '').toLowerCase();
+  return 'T|' + (p.title || '').toLowerCase().trim() + '|' + (p.endereco || '').toLowerCase().trim() + '|' + (p.leilao_data || '');
+}
+
+function dateRank(dmy) {
+  const m = String(dmy || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+}
+
+// Mantém apenas um anúncio por imóvel. Prioridade: galeria (>=2 fotos) > nº de fotos > data mais próxima > maior avaliação > menor id.
+function dedupeByProperty(arr) {
+  const best = {};
+  for (const p of arr) {
+    const k = propertyKey(p);
+    const cur = best[k];
+    if (!cur) { best[k] = p; continue; }
+    const rank = x => [
+      (x.photos || []).length >= 2 ? 1 : 0,
+      (x.photos || []).length,
+      dateRank(x.leilao_data) ?? Number.MAX_SAFE_INTEGER,
+      x.avaliacao || -1,
+      -parseInt(x.listing_id, 10) || 0
+    ];
+    const a = rank(p), b = rank(cur);
+    let win = false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) { win = a[i] > b[i]; break; }
+    }
+    if (win) best[k] = p;
+  }
+  return Object.values(best);
+}
+
 async function scrape() {
   console.log(`Scraping Spy Leilões — ${MODALIDADE} / RJ`);
   const first = await httpGet(`${LIST_BASE}?modalidade=${MODALIDADE}&page=1`);
@@ -354,14 +390,15 @@ async function scrape() {
 
   const outPath = path.join(__dirname, '..', 'api', 'rjleiloes-data.json');
   const filtered = mapped.filter(isRioMunicipio);
-  const withDesc = filtered.filter(p => p.description).length;
-  const withPhotos = filtered.filter(p => (p.photos || []).length > 1).length;
-  const withMetragem = filtered.filter(p => p.metragem).length;
-  console.log(`Saved ${filtered.length} properties (de ${mapped.length})`);
+  const deduped = dedupeByProperty(filtered);
+  const withDesc = deduped.filter(p => p.description).length;
+  const withPhotos = deduped.filter(p => (p.photos || []).length > 1).length;
+  const withMetragem = deduped.filter(p => p.metragem).length;
+  console.log(`Saved ${deduped.length} properties (de ${mapped.length} coletados, ${filtered.length} após filtro RJ, ${filtered.length - deduped.length} duplicados)`);
   console.log(`  com descrição: ${withDesc} | com galeria: ${withPhotos} | com metragem: ${withMetragem}`);
-  fs.writeFileSync(outPath, JSON.stringify({ properties: filtered, updatedAt: new Date().toISOString() }, null, 2));
+  fs.writeFileSync(outPath, JSON.stringify({ properties: deduped, updatedAt: new Date().toISOString() }, null, 2));
   console.log('Arquivo:', outPath);
-  return filtered;
+  return deduped;
 }
 
 scrape().catch(err => { console.error('Scraper error:', err); process.exit(1); });

@@ -275,11 +275,11 @@ function tryLogin(){
 function load(){
   var local=localStorage.getItem('painel_data');
   if(local){
-    try{ALL=JSON.parse(local);render();return}catch(e){}
+    try{ALL=dedupeByProperty(JSON.parse(local)).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});render();return}catch(e){}
   }
   document.getElementById('tableBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Carregando...</td></tr>';
   fetch('/api/properties?limit=1000').then(function(r){return r.json()}).then(function(j){
-    ALL=(j.properties||[]).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});
+    ALL=dedupeByProperty(j.properties||[]).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});
     save();render();
   }).catch(function(){
     document.getElementById('tableBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Erro ao carregar. Tente novamente.</td></tr>';
@@ -287,6 +287,30 @@ function load(){
 }
 
 function save(){localStorage.setItem('painel_data',JSON.stringify(ALL))}
+
+function propertyKey(p){
+  if(p.matricula)return 'M|'+String(p.matricula).replace(/\s+/g,'').toLowerCase();
+  return 'T|'+((p.title||'').toLowerCase().trim())+'|'+((p.endereco||'').toLowerCase().trim())+'|'+(p.leilao_data||'');
+}
+
+function dateRank(dmy){
+  var m=String(dmy||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m)return null;
+  return new Date(+m[3],+m[2]-1,+m[1]).getTime();
+}
+
+function dedupeByProperty(arr){
+  var best={};
+  arr.forEach(function(p){
+    var k=propertyKey(p),cur=best[k];
+    if(!cur){best[k]=p;return}
+    function rank(x){return [(x.photos||[]).length>=2?1:0,(x.photos||[]).length,dateRank(x.leilao_data)||0,x.avaliacao||-1,-parseInt(x.listing_id,10)||0]}
+    var a=rank(p),b=rank(cur),win=false;
+    for(var i=0;i<a.length;i++){if(a[i]!==b[i]){win=a[i]>b[i];break}}
+    if(win)best[k]=p;
+  });
+  return Object.keys(best).map(function(k){return best[k]});
+}
 
 function getFiltered(){
   var q=document.getElementById('searchInput').value.toLowerCase();
@@ -453,7 +477,7 @@ document.getElementById('fileInput').addEventListener('change',function(e){
   reader.onload=function(ev){
     try{
       var data=JSON.parse(ev.target.result);
-      ALL=(data.properties||[]).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});
+      ALL=dedupeByProperty(data.properties||[]).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});
       save();CURRENT_PAGE=1;render();toast('JSON importado — '+ALL.length+' imóveis');
     }catch(err){toast('Erro ao importar JSON')}
   };reader.readAsText(file);e.target.value='';

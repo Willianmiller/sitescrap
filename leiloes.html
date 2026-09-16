@@ -75,6 +75,24 @@
   var grid=document.getElementById('auctionGrid');
   fetch('/api/properties?limit=1000').then(function(r){return r.json()}).then(function(json){
     var items=json.properties||[];
+    function propKey(p){
+      if(p.matricula)return 'M|'+String(p.matricula).replace(/\s+/g,'').toLowerCase();
+      return 'T|'+((p.title||'').toLowerCase().trim())+'|'+((p.endereco||'').toLowerCase().trim())+'|'+(p.leilao_data||'');
+    }
+    function dRank(dmy){
+      var m=String(dmy||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():0;
+    }
+    var best={};
+    items.forEach(function(p){
+      var k=propKey(p),cur=best[k];
+      if(!cur){best[k]=p;return}
+      function r(x){return [(x.photos||[]).length>=2?1:0,(x.photos||[]).length,dRank(x.leilao_data),x.avaliacao||-1]}
+      var a=r(p),b=r(cur),win=false;
+      for(var i=0;i<a.length;i++){if(a[i]!==b[i]){win=a[i]>b[i];break}}
+      if(win)best[k]=p;
+    });
+    items=Object.keys(best).map(function(k){return best[k]});
     if(!items.length){grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Nenhum imóvel encontrado no momento.</p>';return}
     grid.innerHTML=items.map(function(p){
       var city=p.cidade&&p.estado?p.cidade+' - '+p.estado:p.cidade||'';
