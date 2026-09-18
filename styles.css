@@ -210,6 +210,17 @@ ul {
   transform: translateY(-1px);
 }
 
+.navbar-cta-outline {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.navbar-cta-outline:hover {
+  background: var(--accent);
+  color: #0B0B0B;
+}
+
 .mobile-menu .navbar-cta {
   display: inline-flex;
   align-items: center;
