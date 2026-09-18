@@ -210,6 +210,25 @@ ul {
   transform: translateY(-1px);
 }
 
+.navbar-cta-alt {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.navbar-cta-alt:hover {
+  background: var(--accent);
+  color: #0B0B0B;
+}
+
+.mobile-menu .navbar-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 6px;
+}
+
 .navbar-toggle {
   display: none;
   flex-direction: column;
