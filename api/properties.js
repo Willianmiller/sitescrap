@@ -1,6 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
+// Mesma regra de identidade usada no scraper e no painel: matrícula ou título+endereço+data
+function propertyKey(p) {
+  if (p.matricula) return 'M|' + String(p.matricula).replace(/\s+/g, '').toLowerCase();
+  return 'T|' + (p.title || '').toLowerCase().trim() + '|' + (p.endereco || '').toLowerCase().trim() + '|' + (p.leilao_data || '');
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -13,8 +19,15 @@ module.exports = async (req, res) => {
     const dataPath = path.join(__dirname, 'rjleiloes-data.json');
     const data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
     let properties = data.properties || [];
+    const deletedIds = (data.deletedIds || []).map(String);
+    const deletedKeys = data.deletedKeys || [];
 
     const { state, city, type, status = 'active', limit = 200, offset = 0 } = req.query;
+
+    // Anúncios excluídos no painel nunca aparecem (mesmo com status=all)
+    if (deletedIds.length || deletedKeys.length) {
+      properties = properties.filter(p => !deletedIds.includes(String(p.listing_id)) && !deletedKeys.includes(propertyKey(p)));
+    }
 
     if (status !== 'all') properties = properties.filter(p => p.status === status);
     if (state) properties = properties.filter(p => p.estado?.toUpperCase() === state.toUpperCase());
@@ -33,7 +46,9 @@ module.exports = async (req, res) => {
       count: total,
       limit: Number(limit),
       offset: Number(offset),
-      lastUpdate: data.updatedAt || null
+      lastUpdate: data.updatedAt || null,
+      deletedIds,
+      deletedKeys
     });
   } catch (err) {
     console.error('API error:', err);

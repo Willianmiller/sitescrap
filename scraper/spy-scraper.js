@@ -271,6 +271,17 @@ async function runDetailPool(items) {
 
 // ---- Fim: parsing da página de detalhe ----
 
+// Lê as exclusões registradas no painel (deletedIds/deletedKeys) do JSON atual
+function loadDeleted(outPath) {
+  let ids = new Set(), keys = new Set();
+  try {
+    const prev = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    (prev.deletedIds || []).forEach(id => ids.add(String(id)));
+    (prev.deletedKeys || []).forEach(k => keys.add(k));
+  } catch (e) { /* sem JSON anterior: nada excluído */ }
+  return { ids, keys };
+}
+
 // Chave de identidade do imóvel: matrícula quando existir; fallback título+endereço+data
 function propertyKey(p) {
   if (p.matricula) return 'M|' + String(p.matricula).replace(/\s+/g, '').toLowerCase();
@@ -389,14 +400,23 @@ async function scrape() {
   }).filter(p => p.title);
 
   const outPath = path.join(__dirname, '..', 'api', 'rjleiloes-data.json');
+  const { ids: deletedIds, keys: deletedKeys } = loadDeleted(outPath);
   const filtered = mapped.filter(isRioMunicipio);
-  const deduped = dedupeByProperty(filtered);
+  const notDeleted = filtered.filter(p => !deletedIds.has(String(p.listing_id)) && !deletedKeys.has(propertyKey(p)));
+  const skipped = filtered.length - notDeleted.length;
+  const deduped = dedupeByProperty(notDeleted);
   const withDesc = deduped.filter(p => p.description).length;
   const withPhotos = deduped.filter(p => (p.photos || []).length > 1).length;
   const withMetragem = deduped.filter(p => p.metragem).length;
-  console.log(`Saved ${deduped.length} properties (de ${mapped.length} coletados, ${filtered.length} após filtro RJ, ${filtered.length - deduped.length} duplicados)`);
+  console.log(`Saved ${deduped.length} properties (de ${mapped.length} coletados, ${filtered.length} após filtro RJ, ${skipped} excluídos no painel, ${notDeleted.length - deduped.length} duplicados)`);
   console.log(`  com descrição: ${withDesc} | com galeria: ${withPhotos} | com metragem: ${withMetragem}`);
-  fs.writeFileSync(outPath, JSON.stringify({ properties: deduped, updatedAt: new Date().toISOString() }, null, 2));
+  console.log(`  base de exclusões: ${deletedIds.size} ids / ${deletedKeys.size} chaves`);
+  fs.writeFileSync(outPath, JSON.stringify({
+    properties: deduped,
+    deletedIds: [...deletedIds],
+    deletedKeys: [...deletedKeys],
+    updatedAt: new Date().toISOString()
+  }, null, 2));
   console.log('Arquivo:', outPath);
   return deduped;
 }
