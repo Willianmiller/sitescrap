@@ -304,11 +304,16 @@ function tryLogin(){
 
 function load(){
   loadTrash();
+  loadEdits();
   document.getElementById('tableBody').innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Carregando...</td></tr>';
   fetch('/api/properties?limit=5000&status=all').then(function(r){return r.json()}).then(function(j){
     (j.deletedIds||[]).forEach(function(id){if(DELETED_IDS.indexOf(String(id))===-1)DELETED_IDS.push(String(id))});
     (j.deletedKeys||[]).forEach(function(k){if(DELETED_KEYS.indexOf(k)===-1)DELETED_KEYS.push(k)});
-    ALL=dedupeByProperty(j.properties||[]).filter(function(p){return !isDeleted(p)}).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});
+    ALL=dedupeByProperty(j.properties||[]).map(function(p){
+      var e=EDITS[p.listing_id];
+      if(e){for(var k in e){if(k.charAt(0)!=='_')p[k]=e[k]}}
+      return p;
+    }).filter(function(p){return !isDeleted(p)}).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});
     saveTrash();CURRENT_PAGE=1;render();
   }).catch(function(){
     document.getElementById('tableBody').innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Erro ao carregar. Tente novamente.</td></tr>';
@@ -343,11 +348,16 @@ var TRASH=[];
 var DELETED_IDS=[];
 var DELETED_KEYS=[];
 var TRASH_MAX=30;
+var EDITS={};
 
 // O catálogo passou de ~400 para milhares de imóveis e não cabe no localStorage.
-// Mantemos no navegador apenas as listas de exclusão/lixeira (pequenas); edições
-// ficam na sessão e devem ser publicadas pelo botão "Exportar JSON".
+// Mantemos no navegador apenas as listas de exclusão/lixeira (pequenas) e as
+// edições individuais (chave por listing_id) — sem persistir o catálogo inteiro.
 function save(){try{localStorage.removeItem('painel_data')}catch(e){}}
+function loadEdits(){
+  try{EDITS=JSON.parse(localStorage.getItem('painel_edits')||'{}')}catch(e){EDITS={}}
+}
+function saveEdits(){try{localStorage.setItem('painel_edits',JSON.stringify(EDITS))}catch(e){}}
 
 function loadTrash(){
   try{TRASH=JSON.parse(localStorage.getItem('painel_trash')||'[]')}catch(e){TRASH=[]}
@@ -533,7 +543,8 @@ function goPage(p){CURRENT_PAGE=p;render();window.scrollTo({top:0,behavior:'smoo
 function formatNum(n){return n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
 
 function openEdit(idx){
-  var p=ALL[idx];if(!p)return;
+  var p=ALL[idx];
+  if(!p){toast('Imóvel não encontrado');return;}
   document.getElementById('editIdx').value=idx;
   document.getElementById('editTitle').value=p.title||'';
   document.getElementById('editDesc').value=p.description||'';
@@ -562,36 +573,55 @@ function closeModal(){document.getElementById('editModal').classList.remove('ope
 function numOrNull(v){v=String(v).trim();if(!v)return null;var n=parseFloat(v.replace(',','.'));return isNaN(n)?null:n}
 
 function saveEdit(){
-  var idx=parseInt(document.getElementById('editIdx').value);
-  var p=ALL[idx];if(!p)return;
-  p.title=document.getElementById('editTitle').value;
-  p.description=document.getElementById('editDesc').value;
-  p.lance_minimo=document.getElementById('editPrice').value;
-  p.metragem=numOrNull(document.getElementById('editMetragem').value);
-  p.avaliacao=numOrNull(document.getElementById('editAvaliacao').value);
-  p.quartos=numOrNull(document.getElementById('editQuartos').value);
-  p.banheiros=numOrNull(document.getElementById('editBanheiros').value);
-  p.vagas=numOrNull(document.getElementById('editVagas').value);
-  p.bairro=document.getElementById('editBairro').value;
-  p.tipo_imovel=document.getElementById('editTipoImovel').value;
-  p.leiloeiro=document.getElementById('editLeiloeiro').value;
-  p.matricula=document.getElementById('editMatricula').value;
-  p.endereco=document.getElementById('editEndereco').value;
-  p.cidade=document.getElementById('editCidade').value;
-  p.img_url=document.getElementById('editImg').value;
-  p.photos=document.getElementById('editPhotos').value.split('\n').map(function(u){return u.trim()}).filter(Boolean);
-  if(p.img_url&&p.photos.indexOf(p.img_url)===-1)p.photos.unshift(p.img_url);
-  p.url=document.getElementById('editUrl').value;
-  p.leilao_tipo=document.getElementById('editTipo').value;
-  p.status=document.getElementById('editStatus').value;
-  p._hidden=document.getElementById('editStatus').value==='hidden';
-  save();EDITED=true;closeModal();render();toast('Imóvel atualizado');
+  let idx;
+  let p;
+  try {
+    idx = parseInt(document.getElementById('editIdx').value);
+    p = ALL[idx];
+    if(!p){toast('Imóvel não encontrado');closeModal();return;}
+    // update properties
+    p.title=document.getElementById('editTitle').value;
+    p.description=document.getElementById('editDesc').value;
+    p.lance_minimo=document.getElementById('editPrice').value;
+    p.metragem=numOrNull(document.getElementById('editMetragem').value);
+    p.avaliacao=numOrNull(document.getElementById('editAvaliacao').value);
+    p.quartos=numOrNull(document.getElementById('editQuartos').value);
+    p.banheiros=numOrNull(document.getElementById('editBanheiros').value);
+    p.vagas=numOrNull(document.getElementById('editVagas').value);
+    p.bairro=document.getElementById('editBairro').value;
+    p.tipo_imovel=document.getElementById('editTipoImovel').value;
+    p.leiloeiro=document.getElementById('editLeiloeiro').value;
+    p.matricula=document.getElementById('editMatricula').value;
+    p.endereco=document.getElementById('editEndereco').value;
+    p.cidade=document.getElementById('editCidade').value;
+    p.img_url=document.getElementById('editImg').value;
+    p.photos=document.getElementById('editPhotos').value.split('\n').map(function(u){return u.trim()}).filter(Boolean);
+    if(p.img_url&&p.photos.indexOf(p.img_url)===-1)p.photos.unshift(p.img_url);
+    p.url=document.getElementById('editUrl').value;
+    p.leilao_tipo=document.getElementById('editTipo').value;
+    p.status=document.getElementById('editStatus').value;
+    p._hidden=document.getElementById('editStatus').value==='hidden';
+    // persist to local in-memory overrides
+    if(p.listing_id)EDITS[p.listing_id]=stripInternal(p);
+    save();
+    saveEdits();
+    EDITED=true;
+    toast('Imóvel atualizado');
+  } catch(e){
+    console.error('saveEdit error', e);
+    toast('Erro ao salvar: '+e.message);
+  } finally {
+    closeModal();
+    render();
+  }
 }
 
 function toggleHide(idx){
   var p=ALL[idx];if(!p)return;
   p._hidden=!p._hidden;
   p.status=p._hidden?'hidden':'active';
+  if(p.listing_id)EDITS[p.listing_id]=stripInternal(p);
+  saveEdits();
   save();EDITED=true;render();toast(p._hidden?'Imóvel ocultado':'Imóvel visível');
 }
 
