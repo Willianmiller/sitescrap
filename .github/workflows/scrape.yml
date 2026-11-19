@@ -1,13 +1,14 @@
-name: Scrape Spy Leilões (judicial RJ)
+name: Scrape Leilões RJ (multi-fonte)
 
 on:
   schedule:
-    - cron: '0 9 * * 1'
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -19,13 +20,16 @@ jobs:
 
       - run: npm ci
 
-      - name: Scrape Spy Leilões — judicial RJ
-        run: node scraper/spy-scraper.js
+      - name: Build dados multi-fonte (Spy + Mega)
+        run: node scraper/build.js
+        env:
+          MAX_IMAGES: '12'
+          MAX_PAGES: '150'
 
       - name: Commit updated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add api/rjleiloes-data.json
-          git diff --staged --quiet || git commit -m "Update spy-leiloes data $(date +\%Y-\%m-\%d)"
+          git diff --staged --quiet || git commit -m "Update leiloes data $(date +\%Y-\%m-\%d)"
           git push

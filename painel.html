@@ -49,6 +49,7 @@ tr.hidden-row{opacity:.4}
 .cell-tipo.judicial{border-color:var(--accent);color:var(--accent)}
 .cell-tipo.extrajudicial{border-color:#3498db;color:#3498db}
 .cell-tipo.proposta{border-color:#9b59b6;color:#9b59b6}
+.cell-fonte{display:inline-block;padding:3px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:var(--surface2);border:1px solid var(--border);white-space:nowrap;color:var(--muted)}
 .cell-actions{display:flex;gap:6px;white-space:nowrap}
 .cell-actions button{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:var(--muted);font-size:.75rem;transition:all .15s}
 .cell-actions button:hover{color:var(--text);background:var(--surface2)}
@@ -161,6 +162,11 @@ tr.hidden-row{opacity:.4}
       <option value="extrajudicial">Extrajudicial</option>
       <option value="proposta">Proposta</option>
     </select>
+    <select id="filterFonte">
+      <option value="">Todas as fontes</option>
+      <option value="spyleiloes">Spy Leilões</option>
+      <option value="megaleiloes">Mega Leilões</option>
+    </select>
     <select id="filterStatus">
       <option value="">Todos os status</option>
       <option value="active">Visíveis</option>
@@ -183,6 +189,7 @@ tr.hidden-row{opacity:.4}
           <th>Valor</th>
           <th>Cidade</th>
           <th>Tipo</th>
+          <th>Fonte</th>
           <th>Status</th>
           <th>Ações</th>
         </tr>
@@ -297,18 +304,14 @@ function tryLogin(){
 
 function load(){
   loadTrash();
-  var local=localStorage.getItem('painel_data');
-  if(local){
-    try{ALL=dedupeByProperty(JSON.parse(local)).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});render();return}catch(e){}
-  }
-  document.getElementById('tableBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Carregando...</td></tr>';
-  fetch('/api/properties?limit=1000').then(function(r){return r.json()}).then(function(j){
+  document.getElementById('tableBody').innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Carregando...</td></tr>';
+  fetch('/api/properties?limit=5000&status=all').then(function(r){return r.json()}).then(function(j){
     (j.deletedIds||[]).forEach(function(id){if(DELETED_IDS.indexOf(String(id))===-1)DELETED_IDS.push(String(id))});
     (j.deletedKeys||[]).forEach(function(k){if(DELETED_KEYS.indexOf(k)===-1)DELETED_KEYS.push(k)});
     ALL=dedupeByProperty(j.properties||[]).filter(function(p){return !isDeleted(p)}).map(function(p,i){p._idx=i;p._hidden=p.status==='hidden';return p});
-    save();saveTrash();render();
+    saveTrash();CURRENT_PAGE=1;render();
   }).catch(function(){
-    document.getElementById('tableBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Erro ao carregar. Tente novamente.</td></tr>';
+    document.getElementById('tableBody').innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Erro ao carregar. Tente novamente.</td></tr>';
   });
 }
 
@@ -341,7 +344,10 @@ var DELETED_IDS=[];
 var DELETED_KEYS=[];
 var TRASH_MAX=30;
 
-function save(){localStorage.setItem('painel_data',JSON.stringify(ALL))}
+// O catálogo passou de ~400 para milhares de imóveis e não cabe no localStorage.
+// Mantemos no navegador apenas as listas de exclusão/lixeira (pequenas); edições
+// ficam na sessão e devem ser publicadas pelo botão "Exportar JSON".
+function save(){try{localStorage.removeItem('painel_data')}catch(e){}}
 
 function loadTrash(){
   try{TRASH=JSON.parse(localStorage.getItem('painel_trash')||'[]')}catch(e){TRASH=[]}
@@ -438,11 +444,13 @@ function renderTrash(){
 function getFiltered(){
   var q=document.getElementById('searchInput').value.toLowerCase();
   var tipo=document.getElementById('filterTipo').value;
+  var fonte=document.getElementById('filterFonte').value;
   var st=document.getElementById('filterStatus').value;
   var foto=document.getElementById('filterFoto').value;
   return ALL.filter(function(p){
     if(q && ((p.title||'')+(p.cidade||'')+(p.endereco||'')).toLowerCase().indexOf(q)===-1) return false;
     if(tipo && p.leilao_tipo!==tipo) return false;
+    if(fonte && p.source!==fonte) return false;
     if(st==='active' && p._hidden) return false;
     if(st==='hidden' && !p._hidden) return false;
     if(foto==='com' && !p.img_url) return false;
@@ -477,12 +485,14 @@ function render(){
   // table
   var html='';
   if(!page.length){
-    html='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Nenhum imóvel encontrado</td></tr>';
+    html='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Nenhum imóvel encontrado</td></tr>';
   } else {
+    var SOURCE_LABEL={spyleiloes:'Spy',megaleiloes:'Mega'};
     page.forEach(function(p){
       var price=p.lance_minimo||'';
       var city=p.cidade&&p.estado?p.cidade+' / '+p.estado:p.cidade||'—';
       var badge=p.leilao_tipo||'judicial';
+      var fonte=SOURCE_LABEL[p.source]||p.source||'—';
       var vis=!p._hidden;
       html+='<tr class="'+(vis?'':'hidden-row')+'">'+
         '<td class="cell-img">'+(p.img_url?'<img src="'+p.img_url+'" alt="">':'<div class="no-img">s/f</div>')+'</td>'+
@@ -490,6 +500,7 @@ function render(){
         '<td class="cell-price">'+price+'</td>'+
         '<td class="cell-cidade">'+city+'</td>'+
         '<td><span class="cell-tipo '+badge+'">'+badge+'</span></td>'+
+        '<td><span class="cell-fonte">'+fonte+'</span></td>'+
         '<td style="color:'+(vis?'var(--success)':'var(--muted)')+'">'+(vis?'Visível':'Oculto')+'</td>'+
         '<td class="cell-actions">'+
           '<button class="icon-edit" onclick="openEdit('+p._idx+')" title="Editar">✏️</button>'+
@@ -585,7 +596,9 @@ function toggleHide(idx){
 }
 
 function exportJSON(){
-  var data={properties:ALL.map(stripInternal),deletedIds:DELETED_IDS,deletedKeys:DELETED_KEYS,updatedAt:new Date().toISOString()};
+  var counts={};
+  ALL.forEach(function(p){counts[p.source||'outros']=(counts[p.source||'outros']||0)+1});
+  var data={properties:ALL.map(stripInternal),sources:counts,deletedIds:DELETED_IDS,deletedKeys:DELETED_KEYS,updatedAt:new Date().toISOString()};
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='rjleiloes-data.json';a.click();
@@ -614,6 +627,7 @@ document.getElementById('fileInput').addEventListener('change',function(e){
 function resetFilters(){
   document.getElementById('searchInput').value='';
   document.getElementById('filterTipo').value='';
+  document.getElementById('filterFonte').value='';
   document.getElementById('filterStatus').value='';
   document.getElementById('filterFoto').value='';
   CURRENT_PAGE=1;render();
@@ -626,6 +640,7 @@ function toast(msg){
 
 document.getElementById('searchInput').addEventListener('input',function(){CURRENT_PAGE=1;render()});
 document.getElementById('filterTipo').addEventListener('change',function(){CURRENT_PAGE=1;render()});
+document.getElementById('filterFonte').addEventListener('change',function(){CURRENT_PAGE=1;render()});
 document.getElementById('filterStatus').addEventListener('change',function(){CURRENT_PAGE=1;render()});
 document.getElementById('filterFoto').addEventListener('change',function(){CURRENT_PAGE=1;render()});
 document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)closeModal()});

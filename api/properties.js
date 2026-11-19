@@ -7,6 +7,11 @@ function propertyKey(p) {
   return 'T|' + (p.title || '').toLowerCase().trim() + '|' + (p.endereco || '').toLowerCase().trim() + '|' + (p.leilao_data || '');
 }
 
+const n = (v, def) => {
+  const x = parseInt(v, 10);
+  return isNaN(x) ? def : x;
+};
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -22,7 +27,10 @@ module.exports = async (req, res) => {
     const deletedIds = (data.deletedIds || []).map(String);
     const deletedKeys = data.deletedKeys || [];
 
-    const { state, city, type, status = 'active', limit = 200, offset = 0 } = req.query;
+    const {
+      state, city, type, status = 'active', source, id, q,
+      limit = 200, offset = 0
+    } = req.query;
 
     // Anúncios excluídos no painel nunca aparecem (mesmo com status=all)
     if (deletedIds.length || deletedKeys.length) {
@@ -32,6 +40,15 @@ module.exports = async (req, res) => {
     if (status !== 'all') properties = properties.filter(p => p.status === status);
     if (state) properties = properties.filter(p => p.estado?.toUpperCase() === state.toUpperCase());
     if (city) properties = properties.filter(p => p.cidade?.toLowerCase().includes(city.toLowerCase()));
+    if (source && source !== 'all') properties = properties.filter(p => p.source === source);
+    if (id) properties = properties.filter(p => String(p.listing_id) === String(id));
+    if (q) {
+      const term = String(q).toLowerCase();
+      properties = properties.filter(p =>
+        [p.title, p.endereco, p.bairro, p.cidade, p.leiloeiro, p.matricula]
+          .join(' ').toLowerCase().includes(term)
+      );
+    }
     if (type && type !== 'all') {
       if (type === 'judicial' || type === 'extrajudicial') {
         properties = properties.filter(p => p.leilao_tipo === type);
@@ -39,13 +56,17 @@ module.exports = async (req, res) => {
     }
 
     const total = properties.length;
-    properties = properties.slice(Number(offset), Number(offset) + Number(limit));
+    const lim = Math.max(1, Math.min(n(limit, 200), 5000));
+    const off = Math.max(0, n(offset, 0));
+    properties = properties.slice(off, off + lim);
 
     return res.json({
       properties,
       count: total,
-      limit: Number(limit),
-      offset: Number(offset),
+      limit: lim,
+      offset: off,
+      sources: data.sources || {},
+      sourceStatus: data.sourceStatus || {},
       lastUpdate: data.updatedAt || null,
       deletedIds,
       deletedKeys

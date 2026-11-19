@@ -4,10 +4,11 @@
   "private": true,
   "description": "LexLeilões — Assessoria Especializada em Leilões de Imóveis",
   "scripts": {
+    "scrape": "node scraper/build.js",
+    "scrape:spy": "node scraper/build.js --only=spy",
+    "scrape:mega": "node scraper/build.js --only=mega",
     "scrape:caixa": "node scraper/caixa-csv.js",
-    "scrape:leilaoimovel": "node scraper/leilaoimovel.js",
-    "scrape:apify": "node scraper/apify-leilaoimovel.js",
-    "scrape:all": "node scraper/apify-leilaoimovel.js"
+    "scrape:leilaoimovel": "node scraper/leilaoimovel.js"
   },
   "dependencies": {
     "apify-client": "^2.23.4"

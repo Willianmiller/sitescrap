@@ -576,6 +576,70 @@ ul {
 }
 
 /* ===== AUCTION VITRINE ===== */
+.auction-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  margin: 32px auto 14px;
+  max-width: 900px;
+}
+
+.auction-toolbar input,
+.auction-toolbar select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  min-height: 44px;
+}
+
+.auction-toolbar input {
+  flex: 1 1 280px;
+  min-width: 220px;
+}
+
+.auction-toolbar select {
+  flex: 0 1 180px;
+  cursor: pointer;
+}
+
+.auction-toolbar input:focus,
+.auction-toolbar select:focus {
+  border-color: var(--accent);
+}
+
+.auction-toolbar .btn {
+  min-height: 44px;
+  padding: 0 18px;
+}
+
+.auction-count {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 22px;
+}
+
+.auction-more {
+  display: none;
+  justify-content: center;
+  margin-top: 34px;
+}
+
+.auction-more.visible {
+  display: flex;
+}
+
+.auction-more .btn {
+  min-width: 220px;
+}
+
 .auction-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

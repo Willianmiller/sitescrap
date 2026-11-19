@@ -45,10 +45,29 @@
     <div class="section-head reveal">
       <span class="section-label">Vitrine Completa</span>
       <h2 class="section-title">Próximos Leilões de Imóveis</h2>
-      <p class="section-desc">Oportunidades em leilões judiciais e extrajudiciais no Rio de Janeiro. Conte com análise prévia de matrícula e acompanhamento jurídico especializado.</p>
+      <p class="section-desc">Oportunidades em leilões judiciais e extrajudiciais em todo o estado do Rio de Janeiro. Conte com análise prévia de matrícula e acompanhamento jurídico especializado.</p>
     </div>
+
+    <div class="auction-toolbar">
+      <input id="fSearch" type="search" placeholder="Buscar cidade, bairro ou título" autocomplete="off" aria-label="Buscar imóveis">
+      <select id="fType" aria-label="Tipo de leilão">
+        <option value="all">Todos os tipos</option>
+        <option value="judicial">Judicial</option>
+        <option value="extrajudicial">Extrajudicial</option>
+      </select>
+      <select id="fSource" aria-label="Fonte dos leilões">
+        <option value="all">Todas as fontes</option>
+      </select>
+      <button id="fClear" class="btn btn-outline" type="button">Limpar</button>
+    </div>
+    <p class="auction-count" id="fCount">Carregando imóveis...</p>
+
     <div class="auction-grid" id="auctionGrid">
       <p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Carregando imóveis...</p>
+    </div>
+
+    <div class="auction-more" id="loadMoreWrap">
+      <button id="loadMore" class="btn btn-outline" type="button">Carregar mais imóveis</button>
     </div>
   </div>
 </section>
@@ -67,63 +86,127 @@
 <script>
 (function(){
   var WA='5521999892929';
+  var PAGE=24;
+  var grid=document.getElementById('auctionGrid');
+  var countEl=document.getElementById('fCount');
+  var fSearch=document.getElementById('fSearch');
+  var fType=document.getElementById('fType');
+  var fSource=document.getElementById('fSource');
+  var fClear=document.getElementById('fClear');
+  var moreWrap=document.getElementById('loadMoreWrap');
+  var moreBtn=document.getElementById('loadMore');
+
+  var state={offset:0,total:0,loading:false,q:'',type:'all',source:'all',items:[]};
+  var SOURCE_LABEL={spyleiloes:'Spy Leilões',megaleiloes:'Mega Leilões'};
+
+  function esc(s){
+    return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function fmtDate(d){
+    return /^\d{2}\/\d{2}\/\d{4}$/.test(String(d||''))?d:'';
+  }
   function waMsg(p){
     var t=p.title||p.description||'';
     var msg='Olá! Tenho interesse no imóvel: '+t+'\n'+location.origin+'/imovel.html?id='+p.listing_id;
     return 'https://api.whatsapp.com/send?phone='+WA+'&text='+encodeURIComponent(msg);
   }
-  var grid=document.getElementById('auctionGrid');
-  fetch('/api/properties?limit=1000').then(function(r){return r.json()}).then(function(json){
-    var items=json.properties||[];
-    function propKey(p){
-      if(p.matricula)return 'M|'+String(p.matricula).replace(/\s+/g,'').toLowerCase();
-      return 'T|'+((p.title||'').toLowerCase().trim())+'|'+((p.endereco||'').toLowerCase().trim())+'|'+(p.leilao_data||'');
-    }
-    function dRank(dmy){
-      var m=String(dmy||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-      return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():0;
-    }
-    var best={};
-    items.forEach(function(p){
-      var k=propKey(p),cur=best[k];
-      if(!cur){best[k]=p;return}
-      function r(x){return [(x.photos||[]).length>=2?1:0,(x.photos||[]).length,dRank(x.leilao_data),x.avaliacao||-1]}
-      var a=r(p),b=r(cur),win=false;
-      for(var i=0;i<a.length;i++){if(a[i]!==b[i]){win=a[i]>b[i];break}}
-      if(win)best[k]=p;
+  function cardHtml(p){
+    var city=p.cidade&&p.estado?p.cidade+' - '+p.estado:(p.cidade||'');
+    var img=(p.photos&&p.photos[0])||p.img_url||'';
+    var badge=p.leilao_tipo==='judicial'?'Judicial':(p.leilao_tipo==='extrajudicial'?'Extrajudicial':(p.leilao_tipo||'Leilão'));
+    var dateFmt=fmtDate(p.leilao_data||p.proposta_ate);
+    var price=p.lance_minimo||'';
+    return '<article class="auction-card reveal" onclick="location.href=\'imovel.html?id='+encodeURIComponent(p.listing_id)+'\'">'
+      +'<div class="auction-card-bg" style="background-image:linear-gradient(135deg,#1b2631 0%,#0d1821 50%,#162030 100%)"></div>'
+      +'<div class="auction-card-gradient"></div>'
+      +(img?'<img src="'+esc(img)+'" alt="'+esc(city)+'" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4">':'')
+      +'<div class="auction-card-content">'
+      +'<div class="auction-card-bottom">'
+      +(price?'<span class="auction-card-price">'+esc(price)+'</span>':'')
+      +'<h3 class="auction-card-title">'+esc(p.title||city)+'</h3>'
+      +'<div class="auction-card-meta"><span class="auction-card-leilao">'+esc(badge)+'</span>'
+      +(dateFmt?'<span class="auction-card-date">'+esc(dateFmt)+'</span>':'')
+      +'</div>'
+      +'<a class="auction-card-wa" href="'+waMsg(p)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(price?'Tenho interesse':'WhatsApp')+'</a>'
+      +'</div></div></div></article>';
+  }
+  function observeCards(){
+    if(!('IntersectionObserver' in window))return;
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){entry.target.classList.add('visible');obs.unobserve(entry.target)}
+      });
+    },{threshold:0.1});
+    grid.querySelectorAll('.auction-card.reveal').forEach(function(el){obs.observe(el)});
+  }
+  function params(){
+    var p=['limit='+PAGE,'offset='+state.offset,'status=active'];
+    if(state.q)p.push('q='+encodeURIComponent(state.q));
+    if(state.type&&state.type!=='all')p.push('type='+encodeURIComponent(state.type));
+    if(state.source&&state.source!=='all')p.push('source='+encodeURIComponent(state.source));
+    return '/api/properties?'+p.join('&');
+  }
+  function load(reset){
+    if(state.loading)return;
+    state.loading=true;
+    if(reset){state.offset=0;state.items=[];grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Carregando imóveis...</p>';}
+    moreBtn.disabled=true;
+    moreBtn.textContent='Carregando...';
+    fetch(params()).then(function(r){return r.json()}).then(function(json){
+      var items=json.properties||[];
+      state.total=json.count||0;
+      state.items=state.items.concat(items);
+      state.offset+=items.length;
+      if(reset){
+        populateSources(json.sources||{});
+        if(!items.length){
+          grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Nenhum imóvel encontrado com esses filtros.</p>';
+        } else {
+          grid.innerHTML=items.map(cardHtml).join('');
+        }
+      } else if(items.length){
+        grid.insertAdjacentHTML('beforeend',items.map(cardHtml).join(''));
+      }
+      observeCards();
+      var shown=state.items.length;
+      countEl.textContent=state.total?('Mostrando '+shown+' de '+state.total+' imóveis'):'Nenhum imóvel encontrado';
+      moreWrap.classList.toggle('visible',shown<state.total);
+      moreBtn.disabled=false;
+      moreBtn.textContent='Carregar mais imóveis';
+    }).catch(function(){
+      if(reset)grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Erro ao carregar imóveis. Tente novamente mais tarde.</p>';
+      countEl.textContent='Não foi possível carregar os imóveis agora.';
+      moreBtn.disabled=false;
+      moreBtn.textContent='Tentar novamente';
+    }).then(function(){state.loading=false});
+  }
+  function populateSources(counts){
+    if(fSource.options.length>1)return;
+    var keys=Object.keys(counts||{});
+    if(!keys.length)return;
+    keys.sort().forEach(function(k){
+      var opt=document.createElement('option');
+      opt.value=k;
+      opt.textContent=(SOURCE_LABEL[k]||k)+(counts[k]?' ('+counts[k]+')':'');
+      fSource.appendChild(opt);
     });
-    items=Object.keys(best).map(function(k){return best[k]});
-    if(!items.length){grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Nenhum imóvel encontrado no momento.</p>';return}
-    grid.innerHTML=items.map(function(p){
-      var city=p.cidade&&p.estado?p.cidade+' - '+p.estado:p.cidade||'';
-      var img=p.img_url||'';
-      var badge=p.leilao_tipo||'Judicial';
-      var date=p.leilao_data||p.proposta_ate;
-      var dateFmt=date?new Date(date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
-      var href='imovel.html?id='+p.listing_id;
-      var price=p.lance_minimo?p.lance_minimo:'';
-      return '<article class="auction-card reveal" onclick="location.href=\''+href+'\'">'
-        +'<div class="auction-card-bg" style="background-image:linear-gradient(135deg,#1b2631 0%,#0d1821 50%,#162030 100%)"></div>'
-        +'<div class="auction-card-gradient"></div>'
-        +(img?'<img src="'+img+'" alt="'+city+'" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4">':'')
-        +'<div class="auction-card-content">'
-        +'<div class="auction-card-bottom">'
-        +(price?'<span class="auction-card-price">'+price+'</span>':'')
-        +'<h3 class="auction-card-title">'+(p.title||city)+'</h3>'
-        +'<div class="auction-card-meta"><span class="auction-card-leilao">'+badge+'</span>'
-        +(dateFmt?'<span class="auction-card-date">'+dateFmt+'</span>':'')
-        +'</div>'
-        +'<a class="auction-card-wa" href="'+waMsg(p)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(p.lance_minimo?'Tenho interesse':'WhatsApp')+'</a>'
-        +'</div></div></div></article>'
-    }).join('');
-    document.querySelectorAll('.auction-card.reveal').forEach(function(el){
-      new IntersectionObserver(function(entries){
-        entries.forEach(function(entry){if(entry.isIntersecting){entry.target.classList.add('visible');this.unobserve(entry.target)}});
-      },{threshold:0.1}).observe(el);
-    });
-  }).catch(function(){
-    grid.innerHTML='<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:60px 0">Erro ao carregar imóveis. Tente novamente mais tarde.</p>';
+  }
+  var timer;
+  fSearch.addEventListener('input',function(){
+    clearTimeout(timer);
+    timer=setTimeout(function(){state.q=fSearch.value.trim();load(true)},350);
   });
+  fType.addEventListener('change',function(){state.type=fType.value;load(true)});
+  fSource.addEventListener('change',function(){state.source=fSource.value;load(true)});
+  fClear.addEventListener('click',function(){
+    fSearch.value='';fType.value='all';fSource.value='all';
+    state.q='';state.type='all';state.source='all';load(true);
+  });
+  moreBtn.addEventListener('click',function(){load(false)});
+
+  load(true);
 })();
 </script>
 </body>
