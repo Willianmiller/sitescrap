@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { propertyKey, dedupeByProperty, dateRank } = require('./lib/property');
+const { propertyKey, dedupeByProperty, dateRank, isPhotoUrl } = require('./lib/property');
 
 const OUT_PATH = path.join(__dirname, '..', 'api', 'rjleiloes-data.json');
 
@@ -66,15 +66,20 @@ function sortForDisplay(list) {
     else if (t >= now - 24 * 60 * 60 * 1000) buckets.future.push(p);
     else buckets.past.push(p);
   }
-  // Dentro de cada bucket: capital RJ primeiro, depois data mais próxima.
+  // Dentro de cada bucket: capital RJ primeiro, depois foto count (2+ > 1 > 0), depois data mais próxima
   function capitalFirst(a, b) {
     const ca = isCapitalRJ(a) ? 0 : 1;
     const cb = isCapitalRJ(b) ? 0 : 1;
     if (ca !== cb) return ca - cb;
     return dateRank(a.leilao_data) - dateRank(b.leilao_data);
   }
-  buckets.future.sort(capitalFirst);
-  buckets.past.sort((a, b) => capitalFirst(a, b) || dateRank(b.leilao_data) - dateRank(a.leilao_data));
+  function photoFirst(a, b) {
+    const countA = (a.photos || []).filter(isPhotoUrl).length;
+    const countB = (b.photos || []).filter(isPhotoUrl).length;
+    return countB - countA; // mais fotos primeiro (2+ > 1 > 0)
+  }
+  buckets.future.sort((a, b) => capitalFirst(a, b) || photoFirst(a, b));
+  buckets.past.sort((a, b) => capitalFirst(a, b) || photoFirst(a, b) || dateRank(b.leilao_data) - dateRank(a.leilao_data));
   return buckets.future.concat(buckets.unknown, buckets.past);
 }
 
@@ -121,10 +126,15 @@ async function build() {
   const available = notDeleted.filter(p => !isAuctionEnded(p));
   const excludedUnavailable = notDeleted.length - available.length;
 
-  const deduped = dedupeByProperty(available);
-  const duplicates = available.length - deduped.length;
+  // Curadoria: manter apenas imóveis com pelo menos 1 foto real (jpeg/png/webp).
+  // Prioridade na ordenação: 2+ fotos > 1 foto > sem foto.
+  const withPhotos = available.filter(p => (p.photos || []).filter(isPhotoUrl).length > 0);
+  const excludedNoPhotos = available.length - withPhotos.length;
 
-  const sorted = sortForDisplay(deduped);
+  const deduped = dedupeByProperty(withPhotos);
+  const duplicates = withPhotos.length - deduped.length;
+
+  const sorted = sortForDisplay(deduped).slice(0, 500); // Limita a 500 imóveis
 
   const counts = {};
   for (const p of sorted) counts[p.source] = (counts[p.source] || 0) + 1;
@@ -133,7 +143,7 @@ async function build() {
   for (const r of results) sourceStatus[r.name] = r.status;
 
   const withDesc = sorted.filter(p => p.description).length;
-  const withPhotos = sorted.filter(p => (p.photos || []).length > 1).length;
+  const withGallery = sorted.filter(p => (p.photos || []).length > 1).length;
   const withMetragem = sorted.filter(p => p.metragem).length;
 
   const output = {
@@ -150,8 +160,8 @@ async function build() {
   const mb = (fs.statSync(OUT_PATH).size / 1024 / 1024).toFixed(2);
   console.log(`[build] gravado: ${sorted.length} imóveis (${mb} MB)`);
   console.log(`[build] fontes: ${JSON.stringify(counts)} | status: ${JSON.stringify(sourceStatus)}`);
-  console.log(`[build] ${excluded} excluídos no painel, ${excludedUnavailable} encerrados/fora de leilão, ${duplicates} duplicados entre fontes`);
-  console.log(`[build] com descrição: ${withDesc} | com galeria: ${withPhotos} | com metragem: ${withMetragem}`);
+  console.log(`[build] ${excluded} excluídos no painel, ${excludedUnavailable} encerrados/fora de leilão, ${excludedNoPhotos} sem foto, ${duplicates} duplicados entre fontes`);
+  console.log(`[build] com descrição: ${withDesc} | com galeria (2+): ${withGallery} | com metragem: ${withMetragem}`);
   console.log(`[build] arquivo: ${OUT_PATH}`);
 
   if (sorted.length === 0) process.exitCode = 1;

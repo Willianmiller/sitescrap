@@ -107,6 +107,13 @@ function isRJ(item) {
   return t.includes('rio de janeiro');
 }
 
+// Verifica se URL é foto real (jpeg/png/webp) e não placeholder/PDF/SVG.
+function isPhotoUrl(u) {
+  return /\.(jpe?g|png|webp)(\?|$)/i.test(u || '') &&
+    !/\/icons\//i.test(u || '') &&
+    !/semFoto|logo|\.svg|arrow|heart|location|anner/i.test(u || '');
+}
+
 module.exports = {
   clean,
   parseMoney,
@@ -118,5 +125,6 @@ module.exports = {
   dateRank,
   isPast,
   dedupeByProperty,
-  isRJ
+  isRJ,
+  isPhotoUrl
 };
