@@ -208,7 +208,10 @@ async function enrichDetail(item) {
 function mapProperty(item, detail, modalidade) {
   const d = detail || {};
   const tipo = d.tipo === 'judicial' || d.tipo === 'extrajudicial' ? d.tipo : modalidade;
-  const photos = d.photos || (item.img ? [item.img] : []);
+  // Prioriza foto real (jpeg/png/webp), nunca PDF ou SVG placeholder.
+  const realPhoto = (d.photos && d.photos.length) ? d.photos : (isPhotoUrl(item.img) ? [item.img] : []);
+  const photos = realPhoto.filter(isPhotoUrl);
+  const img_url = photos.length ? photos[0] : '';
   return {
     source: 'spyleiloes',
     source_id: `spy-${item.id}`,
@@ -220,7 +223,7 @@ function mapProperty(item, detail, modalidade) {
     bairro: d.bairro || '',
     endereco: d.endereco || item.endereco,
     url: 'https://spyleiloes.com.br' + item.slug,
-    img_url: item.img,
+    img_url,
     photos,
     lance_minimo: item.lance ? item.lance.texto : '',
     lance_minimo_valor: item.lance ? item.lance.valor : null,
