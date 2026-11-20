@@ -52,6 +52,11 @@ async function runSource(source, previous, opts) {
   }
 }
 
+function isCapitalRJ(p) {
+  const c = String(p.cidade || '').trim().toLowerCase();
+  return c === 'rio de janeiro';
+}
+
 function sortForDisplay(list) {
   const now = Date.now();
   const buckets = { future: [], unknown: [], past: [] };
@@ -61,8 +66,15 @@ function sortForDisplay(list) {
     else if (t >= now - 24 * 60 * 60 * 1000) buckets.future.push(p);
     else buckets.past.push(p);
   }
-  buckets.future.sort((a, b) => dateRank(a.leilao_data) - dateRank(b.leilao_data));
-  buckets.past.sort((a, b) => dateRank(b.leilao_data) - dateRank(a.leilao_data));
+  // Dentro de cada bucket: capital RJ primeiro, depois data mais próxima.
+  function capitalFirst(a, b) {
+    const ca = isCapitalRJ(a) ? 0 : 1;
+    const cb = isCapitalRJ(b) ? 0 : 1;
+    if (ca !== cb) return ca - cb;
+    return dateRank(a.leilao_data) - dateRank(b.leilao_data);
+  }
+  buckets.future.sort(capitalFirst);
+  buckets.past.sort((a, b) => capitalFirst(a, b) || dateRank(b.leilao_data) - dateRank(a.leilao_data));
   return buckets.future.concat(buckets.unknown, buckets.past);
 }
 
@@ -89,9 +101,10 @@ async function build() {
   const excluded = collected.length - notDeleted.length;
 
   // Filtra imóveis fora de leilão (encerrados/realizados/ocultos ou com todas as datas passadas).
-  // Mantém margem de 1 dia para não excluir imóveis que leiloam hoje.
+  // Margem de 1 dia só se aplica quando há pelo menos 2 datas; com 1 data só,
+  // considera-se encerrado assim a data passar (evita manter leilão de ontem).
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-  const now = Date.now() - ONE_DAY_MS;
+  const now = Date.now();
   function isAuctionEnded(p) {
     const st = String(p.status || '').toLowerCase();
     if (st === 'hidden' || st === 'realizado' || st === 'ended' || st === 'closed' || st === 'cancelado') return true;
@@ -99,7 +112,10 @@ async function build() {
     if (!dates.length) return false;
     const parsed = dates.map(dateRank).filter(t => t !== null);
     if (!parsed.length) return false;
-    return Math.max(...parsed) < now;
+    // Se só tem 1 data, considera encerrado assim a data passar (sem margem).
+    // Se tem 2+ datas, usa margem de 1 dia para não excluir leilão de hoje.
+    if (parsed.length === 1) return parsed[0] < now;
+    return Math.max(...parsed) < now - ONE_DAY_MS;
   }
 
   const available = notDeleted.filter(p => !isAuctionEnded(p));
